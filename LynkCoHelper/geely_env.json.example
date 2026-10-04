@@ -1,0 +1,23 @@
+{
+  "gricSecret": "",
+  "authorization": "",
+  "lynkcoAppsecret": "",
+  "app": {
+    "appId": "GEELYCNCH001M0001",
+    "appVersion": "4.2.6"
+  },
+  "device": {
+    "id": "",
+    "brand": "google",
+    "model": "sdk_gphone64_arm64",
+    "osVersion": "Android 13 (API 33)",
+    "platform": "Android"
+  },
+  "vehicle": {
+    "identifier": "",
+    "series": "",
+    "brand": "LYNKCO",
+    "aesKey": "",
+    "aesIv": ""
+  }
+}

@@ -16,6 +16,7 @@
 | `lynkco_share.py` | 分享任务逻辑（可选功能） |
 | `lynkco_notify.py` | Bark 推送工具 |
 | `lynkco_daily_tasks.py` | 顶层入口：编排签到 + 分享 + 积分查询并推送结果 |
+| `lynkco_comment.py` | 独立的图文动态评论任务；默认 dry-run，不属于签到/分享任务 |
 
 原理、签名算法、接口协议等技术细节见 `docs/` 目录，此处只介绍如何使用。
 
@@ -71,8 +72,7 @@ pip install -r requirements.txt
     "nativeAppKey": "",
     "nativeAppSecret": "",
     "nativeAppCode": "",
-    "loginAppCode": "",
-    "glDevId": ""
+    "loginAppCode": ""
   },
   "notify": {
     "barkKey": ""
@@ -81,7 +81,7 @@ pip install -r requirements.txt
 ```
 
 - `user`：账号相关凭据（token 至少需要一个，见下）。
-- `secrets`：领克 App 的应用级签名密钥（非个人凭证，但代码中不内置，必须自行配置），获取方式见 `docs/AppSecret_逆向分析记录.md`。每个字段都支持用同名大写环境变量覆盖（如 `LYNKCO_NATIVE_APP_KEY`）；也可用一个整合环境变量 `LYNKCO_APP_SECRETS`（值为与 `secrets` 结构相同的 JSON 字符串）一次性提供全部 5 个字段，适合 CI 只想配置一个 Secret 的场景（优先级：单独字段环境变量 > `LYNKCO_APP_SECRETS` > `env.json`）。均未配置时程序会直接报错退出。
+- `secrets`：领克 App 的应用级签名密钥（非个人凭证，但代码中不内置，必须自行配置），获取方式见 `docs/AppSecret_逆向分析记录.md`。每个字段都支持用同名大写环境变量覆盖（如 `LYNKCO_NATIVE_APP_KEY`）；也可用一个整合环境变量 `LYNKCO_APP_SECRETS`（值为与 `secrets` 结构相同的 JSON 字符串）一次性提供全部 4 个字段，适合 CI 只想配置一个 Secret 的场景（优先级：单独字段环境变量 > `LYNKCO_APP_SECRETS` > `env.json`）。均未配置时程序会直接报错退出。
 - `notify`：推送相关配置，`barkKey` 为 Bark 推送 Key（可选，也可用环境变量 `LYNKCO_BARK_KEY` 覆盖）。
 
 ### 3. 获取 token
@@ -108,7 +108,55 @@ python3 lynkco_daily_tasks.py    # 签到 + 分享 + 积分查询 + Bark 推送
 | --- | --- |
 | `LYNKCO_BARK_KEY` | Bark 推送的 Key，未配置则跳过推送（也可写入 `env.json` 的 `notify.barkKey`） |
 | `LYNKCO_ENERGY_DELAY` | 签到/分享后查询积分前的等待秒数，默认 5 |
-| `LYNKCO_BARK_ICON` | Bark 推送使用的图标 URL，默认使用领克官方图标 |
+| `LYNKCO_BARK_ICON` | Bark 推送使用的自定义图标 URL，可选 |
+| `LYNKCO_TIMEOUT` | 领克接口统一请求超时秒数，默认 30 |
+| `LYNKCO_RETRIES` | 领克接口超时/断连重试次数，默认 2 |
+| `LYNKCO_AI_TIMEOUT` | AI 请求超时秒数，默认 60 |
+
+### GRIC 车辆接口（独立配置）
+
+`geely_gric.py` 使用独立的 GRIC 签名及 `geely_env.json`，不替代上面的签到配置。先复制 `geely_env.json.example` 为 `geely_env.json`；模板是可解析的 JSON，敏感字段留空，不能直接用于联网。填写 `gricSecret`（GRIC HMAC 密钥）和 `lynkcoAppsecret`（领克 access-code 请求头的 appsecret），并按上文配置 `env.json` 中的领克登录态及原生签名密钥。不要提交这两个本地配置文件。
+
+```bash
+python3 geely_gric.py auth          # 领克登录态 -> access-code -> GRIC JWT，写回配置
+python3 geely_gric.py vehicle-init  # 获取默认车辆并生成 identifier/series，写回配置
+python3 geely_gric.py hb            # 验证 GRIC 请求；需要有效凭据和车辆配置
+```
+
+`GrwbClient()` 在没有显式 JWT 和 `GEELY_GRIC_JWT` 时使用 `load_jwt()`：先读取尚未过期的 `geely_env.json` 缓存，否则重新执行认证并回写。手动传入的 JWT 优先于环境变量；设置 `GEELY_GRIC_JWT` 后直接使用该值，不会替它自动续期。设备 ID 与车辆头的环境变量优先于文件中的值。
+
+| 环境变量 | `geely_env.json` 字段 | 用途 |
+| --- | --- | --- |
+| `GEELY_GRIC_SECRET` | `gricSecret` | GRIC 请求签名密钥 |
+| `GEELY_LYNKCO_APPSECRET` | `lynkcoAppsecret` | access-code 请求头 |
+| `GEELY_GRIC_JWT` | `authorization` | GRIC JWT；显式设置时跳过缓存/续期 |
+| `GEELY_DEVICE_ID` | `device.id` | 设备 ID |
+| `GEELY_VEHICLE_IDENTIFIER` / `GEELY_VEHICLE_SERIES` | `vehicle.identifier` / `vehicle.series` | 已加密 VIN / Base64 车型代码 |
+| `GEELY_VEH_AES_KEY` / `GEELY_VEH_AES_IV` | `vehicle.aesKey` / `vehicle.aesIv` | 可选的车辆加密算法覆盖值，`vehicle-init` 不会清除它们 |
+| `GEELY_TIMEOUT` / `GEELY_RETRIES` | 无 | GRIC 请求超时秒数（默认 30）/ 超时重试次数（默认 2） |
+
+`geely_env.json.example` 中的空值只是占位，不能充当密钥、JWT 或车辆 ID。
+
+## 图文动态评论（独立任务）
+
+`lynkco_comment.py` 从 `/home-page/v3/list` 读取新内容，默认读取 1 页（最多 20 条），发布前复查文章详情，再通过统一 AI 门面调用 ChatAnywhere 或 GLM 分析文字与图片，生成不超过 500 字的评论。**目前仅对文章自动发布**：文章评论已在本地得到服务端 `commentId`，并通过评论列表确认可见。普通 UGC 图文可在演练中分析，但其评论关系未验证，`--publish` 会跳过；视频不处理。评论任务与签到/分享相互独立。
+
+在 `LynkCoHelper` 目录执行：
+
+```bash
+python3 lynkco_comment.py --dry-run                 # 真实列表、详情和模型，不提交评论
+python3 lynkco_comment.py --publish --max-comments 1 # 真实发布，最多确认 1 条
+```
+
+真实演练会调用第三方模型，可能产生费用，但不会发送评论 POST。AI 配置优先级为独立环境变量 > `env.json` 的 `ai` 段 > 默认值：默认使用 ChatAnywhere，设置 `ai.provider` 为 `glm` 可切换到 GLM。ChatAnywhere 使用 `CHATANYWHERE_API_KEY` / `CHATANYWHERE_MODEL`，GLM 使用 `GLM_API_KEY`（兼容 `ZHIPU_API_KEY`）/ `GLM_MODEL`；本地也可以直接在 `env.json` 的 `ai.apiKey` 和 `ai.model` 中填写。GLM 图文动态建议使用 `glm-4.6v-flash`。除此之外还需要有效的领克 token（或 refreshToken）及 App 原生签名密钥。所有领克原生请求统一使用最新 HAR 中的 iOS 头：`CA_iOS_SDK_2.0`、`4.2.8`、`40208072`、`iPhone 15 Pro`、`27.0.1`；这些版本和设备头不再按设备差异化配置。发布前通过 `GET /auth/user/info` 的 iOS 原生签名请求，从当前 token 获取 `data.id` 作为评论请求的 `gl_user_id`；userinfo 获取失败会直接终止发布，不使用本地写死账号 ID。`deviceId` 仅从 `LYNKCO_DEVICE_ID` 或 `env.json.user.deviceId` 读取。`LYNKCO_COMMENT_MAX_PER_RUN` 控制每轮最多尝试 1～10 条（默认 1），即使模型失败也不会继续尝试更多动态；`LYNKCO_COMMENT_MAX_AGE_HOURS` 控制发布时间窗口 1～168 小时（默认 48）；`LYNKCO_COMMENT_FEED_PAGES` 控制列表拉取页数 1～20（默认 1，每页 20 条）；命令行 `--max-comments` 优先于环境变量；网络超时统一使用 `LYNKCO_TIMEOUT`。
+
+配置 `LYNKCO_BARK_KEY` 后，每条生成评论各推送一条，文案固定包含动态标题、评论正文和**演练/发布/失败/待核对**状态；文章通知可点击打开对应 H5 分享页。没有生成评论时发送本轮计数汇总。Bark 推送失败不会改变评论确认结果，但会在任务 JSON 中标记 `bark_failed`。成功或结果不明的文章 ID 保存在已忽略的 `.comment_state.json` 中，结果不明时不会自动重发；请核实评论列表后再处理状态。一次受控的 UGC 发布曾返回业务拒绝，不能当成 UGC 可用的证据。
+
+评论任务相关环境变量：`LYNKCO_COMMENT_MAX_PER_RUN`（每轮尝试 1～10 条，默认 1）、`LYNKCO_COMMENT_MAX_AGE_HOURS`（时间窗口 1～168 小时，默认 48）、`LYNKCO_COMMENT_FEED_PAGES`（列表页数 1～20，默认 1，每页 20 条）、`LYNKCO_AI_TIMEOUT`（模型请求超时，默认 60 秒）。领克原生请求统一使用最新 HAR 的 iOS 请求头，版本和设备字段由公共模块固定管理。
+
+独立的 `.github/workflows/comment-task.yml` 每天北京时间 09:17 计划运行（GitHub 调度可能延迟）；手动触发默认演练，勾选 `publish` 才发布。**工作流目前仅在本地分支，需进入 GitHub 默认分支后才会开始定时运行。**它使用与本地相同的脚本，运行前只从当前分支最新的 `lynkco-comment-state` artifact 恢复去重状态，首次无 artifact 时从 `LYNKCO_COMMENT_BOOTSTRAP_STATE` Secret 导入；发布时两者都没有会中止。运行后上传状态 artifact，评论部分成功而后续失败也会保留已记录的 ID。若 Runner 在评论已被服务端接受、但最终 artifact 上传前中断，下一轮前必须先核对评论列表，再处理状态，不能盲目重发。既有的 `daily-tasks.yml` 不会执行评论。
+
+评论工作流的 Actions Secrets：`LYNKCO_REFRESH_TOKEN`、`LYNKCO_DEVICE_ID`、`LYNKCO_APP_SECRETS`、`CHATANYWHERE_API_KEY`、`GLM_API_KEY`；`LYNKCO_BARK_KEY` 和 `LYNKCO_BARK_ICON` 可选。默认通过 userinfo 接口实时获取当前账号，不需要配置账号 ID。通过 Actions Variable `LYNKCO_AI_PROVIDER=glm` 切换到 GLM，模型可用 `GLM_MODEL` 覆盖。已在本地发布过评论时，用当前 `.comment_state.json` 的内容初始化 `LYNKCO_COMMENT_BOOTSTRAP_STATE` Secret，避免首次 CI 运行重复评论；之后以同一分支的最新 artifact 为准。Actions Variables 可设置 `LYNKCO_COMMENT_MAX_PER_RUN`、`LYNKCO_COMMENT_MAX_AGE_HOURS`、`LYNKCO_COMMENT_FEED_PAGES`、`LYNKCO_TIMEOUT`、`LYNKCO_AI_TIMEOUT` 和 `LYNKCO_RETRIES`。密钥不要写入仓库、命令行参数或工作流文件。
 
 ## 部署到 GitHub Actions 定时执行
 
@@ -117,13 +165,13 @@ python3 lynkco_daily_tasks.py    # 签到 + 分享 + 积分查询 + Bark 推送
 1. Fork 本仓库。
 2. 进入 `Settings → Secrets and variables → Actions`，新增 Secret：
    - 必需：`LYNKCO_TOKEN`（或 `LYNKCO_REFRESH_TOKEN` + `LYNKCO_DEVICE_ID`，推荐后者，可自动续期）。
-   - 必需：`LYNKCO_APP_SECRETS`，一个 JSON 字符串，整合了 `env.json` 中 `secrets` 段的全部 5 个字段，形如：
+   - 必需：`LYNKCO_APP_SECRETS`，一个 JSON 字符串，整合了 `env.json` 中 `secrets` 段的全部 4 个字段，形如：
      ```json
-     {"nativeAppKey":"...","nativeAppSecret":"...","nativeAppCode":"...","loginAppCode":"...","glDevId":"..."}
+     {"nativeAppKey":"...","nativeAppSecret":"...","nativeAppCode":"...","loginAppCode":"..."}
      ```
-     （如果不想合并配置，也可仍改用 5 个独立的 `LYNKCO_NATIVE_APP_KEY` 等 Secret，同时修改 workflow 中的 `env` 字段）。
+     （如果不想合并配置，也可改用 4 个独立的 `LYNKCO_NATIVE_APP_KEY` 等 Secret，同时修改 workflow 中的 `env` 字段）。
    - 可选：`LYNKCO_BARK_KEY`（daily-tasks 的 Bark 推送）。
-3. 可在 `Actions` 页面手动触发一次 workflow 测试。
+3. 可在 `Actions` 页面手动触发一次 workflow 验证。
 4. 仅配置 `LYNKCO_TOKEN` 时，token 失效后需要手动更新；配置 `refreshToken` 后可自动续期，仅需在其过期（约 30 天）时才需人工干预。
 
 ## 已知限制

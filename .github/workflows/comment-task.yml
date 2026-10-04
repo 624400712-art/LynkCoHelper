@@ -1,0 +1,109 @@
+name: LynkCo Comment Task
+
+on:
+  schedule:
+    # Daily at 09:17 China time, separate from sign/share at 08:00.
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish article comments (otherwise dry-run)"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: lynkco-comment
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: LynkCoHelper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Restore latest comment state
+        id: restore
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LYNKCO_COMMENT_REF: ${{ github.ref_name }}
+        run: |
+          status="$(python tools/comment_state_artifact.py)"
+          case "$status" in
+            "Comment state restored.") echo "restored=true" >> "$GITHUB_OUTPUT" ;;
+            "No prior comment state artifact.") echo "restored=false" >> "$GITHUB_OUTPUT" ;;
+            *) exit 1 ;;
+          esac
+      - name: Bootstrap state if no artifact exists
+        id: bootstrap
+        if: ${{ steps.restore.outputs.restored == 'false' }}
+        env:
+          BOOTSTRAP_STATE: ${{ secrets.LYNKCO_COMMENT_BOOTSTRAP_STATE }}
+          PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish == true }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from lynkco_comment import save_state_atomic, validate_state
+
+          raw = os.environ.get("BOOTSTRAP_STATE", "")
+          if raw.strip():
+              try:
+                  state = validate_state(json.loads(raw))
+              except (TypeError, ValueError):
+                  raise SystemExit("Bootstrap comment state is invalid.") from None
+              save_state_atomic(Path(".comment_state.json"), state)
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                  output.write("ready=true\n")
+          elif os.environ["PUBLISH"] == "true":
+              raise SystemExit("First publish requires a comment state artifact or bootstrap secret.")
+          PY
+      - name: Initialize and validate state
+        run: |
+          python -c 'from pathlib import Path; from lynkco_comment import load_state, save_state_atomic; path = Path(".comment_state.json"); save_state_atomic(path, load_state(path))'
+      - name: Run article comment task
+        env:
+          LYNKCO_REFRESH_TOKEN: ${{ secrets.LYNKCO_REFRESH_TOKEN }}
+          LYNKCO_DEVICE_ID: ${{ secrets.LYNKCO_DEVICE_ID }}
+          LYNKCO_APP_SECRETS: ${{ secrets.LYNKCO_APP_SECRETS }}
+          LYNKCO_AI_PROVIDER: ${{ vars.LYNKCO_AI_PROVIDER || 'chatanywhere' }}
+          CHATANYWHERE_API_KEY: ${{ secrets.CHATANYWHERE_API_KEY }}
+          CHATANYWHERE_MODEL: ${{ vars.CHATANYWHERE_MODEL || 'gpt-4o-mini' }}
+          GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+          GLM_MODEL: ${{ vars.GLM_MODEL || 'glm-4.6v-flash' }}
+          LYNKCO_BARK_KEY: ${{ secrets.LYNKCO_BARK_KEY }}
+          LYNKCO_BARK_ICON: ${{ secrets.LYNKCO_BARK_ICON }}
+          LYNKCO_COMMENT_MAX_PER_RUN: ${{ vars.LYNKCO_COMMENT_MAX_PER_RUN || '1' }}
+          LYNKCO_COMMENT_MAX_AGE_HOURS: ${{ vars.LYNKCO_COMMENT_MAX_AGE_HOURS || '48' }}
+          LYNKCO_COMMENT_FEED_PAGES: ${{ vars.LYNKCO_COMMENT_FEED_PAGES || '1' }}
+          LYNKCO_TIMEOUT: ${{ vars.LYNKCO_TIMEOUT || '30' }}
+          LYNKCO_AI_TIMEOUT: ${{ vars.LYNKCO_AI_TIMEOUT || '60' }}
+          LYNKCO_RETRIES: ${{ vars.LYNKCO_RETRIES || '2' }}
+          PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish == true }}
+        run: |
+          if [ "$PUBLISH" = "true" ]; then
+            python lynkco_comment.py --publish
+          else
+            python lynkco_comment.py --dry-run
+          fi
+      - name: Preserve comment state
+        if: ${{ always() && steps.restore.outcome == 'success' && (steps.restore.outputs.restored == 'true' || steps.bootstrap.outputs.ready == 'true') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lynkco-comment-state
+          path: LynkCoHelper/.comment_state.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

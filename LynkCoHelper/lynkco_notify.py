@@ -8,13 +8,13 @@ lynkco_daily_tasks.py 按需调用）：
 配置方式：环境变量 LYNKCO_BARK_KEY，或 env.json 的 notify.barkKey 字段
 （Bark App「我的」页面可查看），未配置时跳过推送并打印提示，不抛异常。
 """
-import os
-
 import requests
 
-from lynkco_common import load_env_data
+from lynkco_common import env_value, load_env_data
 
 BARK_DEFAULT_BASE = "https://api.day.app"
+BARK_CONNECT_TIMEOUT = 5
+BARK_READ_TIMEOUT = 15
 
 
 def _extract_point(energy_resp: dict) -> str:
@@ -83,13 +83,13 @@ def build_markdown_report(result: dict) -> str:
 
 def send_bark_notification(title: str, markdown_body: str, group: str = "LynkCo签到",
                             icon: str = None, level: str = "active",
-                            bark_key: str = None) -> dict:
+                            bark_key: str = None, open_url: str = None) -> dict:
     """
     通过 Bark 发送一条 Markdown 格式的推送通知。level 可选
     "critical"/"active"/"timeSensitive"/"passive"。bark_key 不传则读取
     环境变量 LYNKCO_BARK_KEY，未配置时返回 {"skipped": True} 且不抛异常。
     """
-    bark_key = bark_key or os.environ.get("LYNKCO_BARK_KEY", "").strip() or load_env_data().get("notify", {}).get("barkKey", "").strip()
+    bark_key = bark_key or env_value("LYNKCO_BARK_KEY") or load_env_data().get("notify", {}).get("barkKey", "").strip()
     if not bark_key:
         print("[提示] 未配置 LYNKCO_BARK_KEY，跳过 Bark 推送。")
         return {"skipped": True}
@@ -104,11 +104,18 @@ def send_bark_notification(title: str, markdown_body: str, group: str = "LynkCo�
     }
     if icon:
         payload["icon"] = icon
+    if open_url:
+        payload["url"] = open_url
 
-    resp = requests.post(
+    # requests may inherit a desktop-wide proxy that can connect but never
+    # return Bark's response. Bark is directly reachable, so use a clean
+    # session and separate short connect/read timeouts for this notification.
+    session = requests.Session()
+    session.trust_env = False
+    resp = session.post(
         url, json=payload,
         headers={"Content-Type": "application/json; charset=utf-8"},
-        timeout=30,
+        timeout=(BARK_CONNECT_TIMEOUT, BARK_READ_TIMEOUT),
     )
     resp.raise_for_status()
     return resp.json()

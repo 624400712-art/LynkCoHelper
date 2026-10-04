@@ -24,20 +24,54 @@ import requests
 
 import lynkco_common
 from lynkco_common import (
-    ANDROID_APP_BUILD,
     APP_VERSION,
-    NATIVE_ANDROID_UA,
+    DEFAULT_TIMEOUT,
+    IOS_DEVICE_MODEL,
     NATIVE_BASE_URL,
+    build_ios_signature,
     build_native_signature,
+    env_value,
+    build_native_app_headers,
     load_env_data,
     save_env_fields,
 )
 
 # ------------------------- refreshToken 续期 -------------------------
 
-# iOS 请求仍沿用其对应的抓包 build 号；Android 版本与 build 统一由
-# lynkco_common 的 APK 元数据常量提供。
-IOS_APP_BUILD = "40203073"
+USER_INFO_PATH = "/auth/user/info"
+
+
+def get_user_info(token: str, device_id: str, session=None) -> dict:
+    """Fetch the current account identity using the native iOS user-info request."""
+    if not isinstance(token, str) or not token.strip():
+        raise ValueError("token 不能为空")
+    if not isinstance(device_id, str) or not device_id.strip():
+        raise ValueError("device_id 不能为空")
+    token = token.strip()
+    token = token if token.lower().startswith("bearer") else f"bearer{token}"
+    headers = build_ios_signature(
+        "GET", USER_INFO_PATH, token=token, accept="application/json",
+        content_type="application/json; charset=UTF-8",
+    )
+    headers.update(build_native_app_headers(device_id=device_id.strip(), token=token))
+    sess = session if session is not None else requests.Session()
+    try:
+        response = sess.get(NATIVE_BASE_URL + USER_INFO_PATH, headers=headers, timeout=DEFAULT_TIMEOUT)
+    except requests.exceptions.RequestException:
+        raise RuntimeError("user info request failed") from None
+    if response.status_code != 200:
+        raise RuntimeError(f"user info HTTP status {response.status_code}")
+    try:
+        payload = response.json()
+    except ValueError:
+        raise RuntimeError("user info response was not JSON") from None
+    if not isinstance(payload, dict) or payload.get("code") != "success":
+        raise RuntimeError("user info response was unsuccessful")
+    data = payload.get("data")
+    account_id = data.get("id") if isinstance(data, dict) else None
+    if isinstance(account_id, bool) or not str(account_id or "").strip().isdigit():
+        raise RuntimeError("user info did not contain a numeric id")
+    return {"id": str(account_id).strip()}
 
 
 def _parse_refresh_response(data: dict, refresh_token_value: str) -> dict:
@@ -79,19 +113,13 @@ def refresh_token_by_appcode(refresh_token_value: str, device_id: str) -> dict:
         "Authorization": f"APPCODE {lynkco_common.NATIVE_APP_CODE}",
         "accept": "application/json",
         "content-type": "application/json; charset=UTF-8",
-        "publicplatform": "iOS",
-        "user-agent": "CA_iOS_SDK_2.0",
         "token": "",
-        "gl_dev_id": device_id,
-        "appversioncode": APP_VERSION,
-        "appversionname": IOS_APP_BUILD,
-        "gl_app_version": APP_VERSION,
-        "gl_app_build": IOS_APP_BUILD,
         "x-ca-version": "1",
     }
+    headers.update(build_native_app_headers(device_id=device_id))
 
     url = NATIVE_BASE_URL + path
-    resp = requests.get(url, params=query, headers=headers, timeout=30)
+    resp = requests.get(url, params=query, headers=headers, timeout=DEFAULT_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     return _parse_refresh_response(data, refresh_token_value)
@@ -103,15 +131,14 @@ def refresh_token_by_signature(refresh_token_value: str, device_id: str) -> dict
     query = {"deviceId": device_id, "refreshToken": refresh_token_value}
 
     # Accept / Content-Type 已参与签名运算，不要在下面覆盖它们，否则会与签名时的值不一致导致校验失败。
-    headers = build_native_signature("GET", path, query)
+    headers = build_ios_signature("GET", path, query=query, token="")
     headers["ca_version"] = "1"
     headers["x-requiretoken"] = "false"
     headers["oauth"] = "false"
-    headers["User-Agent"] = NATIVE_ANDROID_UA
-    headers.update(lynkco_common.NATIVE_DEVICE_HEADERS)
+    headers.update(build_native_app_headers())
 
     url = NATIVE_BASE_URL + path
-    resp = requests.get(url, params=query, headers=headers, timeout=30)
+    resp = requests.get(url, params=query, headers=headers, timeout=DEFAULT_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     return _parse_refresh_response(data, refresh_token_value)
@@ -167,15 +194,10 @@ def get_security_config(device_id: str) -> dict:
     headers["ca_version"] = "1"
     headers["tenantid"] = "569001643002"
     headers["x-refresh-token"] = "true"
-    headers["User-Agent"] = NATIVE_ANDROID_UA
-    headers["appVersionCode"] = APP_VERSION
-    headers["appVersionName"] = ANDROID_APP_BUILD
-    headers["publicPlatform"] = "android"
-    headers.update(lynkco_common.NATIVE_DEVICE_HEADERS)
-    headers["gl_dev_id"] = device_id  # 覆盖 NATIVE_DEVICE_HEADERS 里的默认设备id
+    headers.update(build_native_app_headers(device_id=device_id))
 
     url = NATIVE_BASE_URL + path
-    resp = requests.get(url, params=query, headers=headers, timeout=30)
+    resp = requests.get(url, params=query, headers=headers, timeout=DEFAULT_TIMEOUT)
     resp.raise_for_status()
     return resp.json()
 
@@ -210,15 +232,10 @@ def validate_geetest(device_id: str, lot_number: str, captcha_output: str,
     headers["ca_version"] = "1"
     headers["tenantid"] = "569001643002"
     headers["x-refresh-token"] = "true"
-    headers["User-Agent"] = NATIVE_ANDROID_UA
-    headers["appVersionCode"] = APP_VERSION
-    headers["appVersionName"] = ANDROID_APP_BUILD
-    headers["publicPlatform"] = "android"
-    headers.update(lynkco_common.NATIVE_DEVICE_HEADERS)
-    headers["gl_dev_id"] = device_id  # 覆盖 NATIVE_DEVICE_HEADERS 里的默认设备id
+    headers.update(build_native_app_headers(device_id=device_id))
 
     url = NATIVE_BASE_URL + path
-    resp = requests.post(url, data=body_bytes, headers=headers, timeout=30)
+    resp = requests.post(url, data=body_bytes, headers=headers, timeout=DEFAULT_TIMEOUT)
     resp.raise_for_status()
     return resp.json()
 
@@ -229,23 +246,16 @@ def send_login_sms(device_id: str, mobile: str, certify_id: str) -> dict:
     body_dict = {"mobile": mobile, "challenge": certify_id}
     body_bytes = json.dumps(body_dict, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
-    headers = build_native_signature(
-        "POST", path,
-        accept="application/json; charset=utf-8",
-        content_type="application/json; charset=utf-8",
-        signature_headers_order="x-ca-nonce,x-ca-timestamp,x-ca-key",
-        body=body_bytes,
+    headers = build_ios_signature(
+        "POST", path, body=body_bytes,
+        accept="application/json",
+        content_type="application/json; charset=UTF-8",
     )
     headers["ca_version"] = "1"
-    headers["User-Agent"] = NATIVE_ANDROID_UA
-    headers["appVersionCode"] = APP_VERSION
-    headers["appVersionName"] = ANDROID_APP_BUILD
-    headers["publicPlatform"] = "android"
-    headers.update(lynkco_common.NATIVE_DEVICE_HEADERS)
-    headers["gl_dev_id"] = device_id  # 覆盖 NATIVE_DEVICE_HEADERS 里的默认设备id
+    headers.update(build_native_app_headers(device_id=device_id))
 
     url = NATIVE_BASE_URL + path
-    resp = requests.post(url, data=body_bytes, headers=headers, timeout=30)
+    resp = requests.post(url, data=body_bytes, headers=headers, timeout=DEFAULT_TIMEOUT)
     resp.raise_for_status()
     return resp.json()
 
@@ -260,33 +270,26 @@ def login_by_mobile_code(device_id: str, mobile: str, verification_code: str) ->
     """
     path = EP_MOBILE_CODE_LOGIN
     query = {
-        "deviceType": "ANDROID",
+        "deviceType": "IOS",
         "appVersion": APP_VERSION,
         "hardwareDeviceId": device_id,
         "mobile": mobile,
-        "deviceModel": lynkco_common.NATIVE_DEVICE_HEADERS.get("gl_dev_model", "sdk_gphone64_arm64"),
+        "deviceModel": IOS_DEVICE_MODEL,
         "verificationCode": verification_code,
     }
     body_bytes = b"{}"
 
-    headers = build_native_signature(
-        "POST", path, query=query,
-        accept="application/json; charset=utf-8",
-        content_type="application/json; charset=utf-8",
-        signature_headers_order="x-ca-nonce,x-ca-timestamp,x-ca-key",
-        body=body_bytes,
+    headers = build_ios_signature(
+        "POST", path, query=query, body=body_bytes,
+        accept="application/json",
+        content_type="application/json; charset=UTF-8",
     )
     headers["certifyid"] = ""
     headers["ca_version"] = "1"
-    headers["User-Agent"] = NATIVE_ANDROID_UA
-    headers["appVersionCode"] = APP_VERSION
-    headers["appVersionName"] = ANDROID_APP_BUILD
-    headers["publicPlatform"] = "android"
-    headers.update(lynkco_common.NATIVE_DEVICE_HEADERS)
-    headers["gl_dev_id"] = device_id  # 覆盖 NATIVE_DEVICE_HEADERS 里的默认设备id
+    headers.update(build_native_app_headers(device_id=device_id))
 
     url = NATIVE_BASE_URL + path
-    resp = requests.post(url, params=query, data=body_bytes, headers=headers, timeout=30)
+    resp = requests.post(url, params=query, data=body_bytes, headers=headers, timeout=DEFAULT_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     result = _parse_refresh_response(data, refresh_token_value="")
@@ -295,80 +298,38 @@ def login_by_mobile_code(device_id: str, mobile: str, verification_code: str) ->
 
 
 def login_by_password(device_id: str, username: str, password_md5: str, certify_id: str,
-                       hardware_device_id: str = None, device_type: str = "ANDROID") -> dict:
+                       hardware_device_id: str = None) -> dict:
     """
     【参考实现，不建议依赖】账号密码登录（sliding/login）。陌生设备会被风控拦截为
     untrusted.device，需改走 send_login_sms + login_by_mobile_code 兜底；password_md5
-    加密算法未完全逆向确认。device_type="IOS" 时使用不同的签名 header 顺序/大小写规则
-    （详见 docs/登录接口协议说明.md）。
+    加密算法未完全逆向确认；该入口固定使用最新 HAR 的 iOS 请求头和签名格式。
     """
     path = EP_PASSWORD_LOGIN
-    is_ios = device_type.upper() == "IOS"
     query = {
-        "deviceType": device_type.upper(),
+        "deviceType": "IOS",
         "appVersion": APP_VERSION,
         "password": password_md5,
         "hardwareDeviceId": hardware_device_id or device_id,
         "challenge": certify_id,
-        "deviceModel": lynkco_common.NATIVE_DEVICE_HEADERS.get("gl_dev_model", "sdk_gphone64_arm64"),
+        "deviceModel": IOS_DEVICE_MODEL,
         "username": username,
     }
     body_bytes = b"{}"
 
-    if is_ios:
-        nonce = str(uuid.uuid4())
-        timestamp = str(int(time.time() * 1000))
-        signature_header_items = [
-            ("X-Ca-Key", lynkco_common.NATIVE_APP_KEY),
-            ("X-Ca-Nonce", nonce),
-            ("X-Ca-Signature-Method", "HmacSHA256"),
-            ("X-Ca-Timestamp", timestamp),
-            ("X-Ca-Version", "1"),
-            ("token", ""),
-        ]
-        headers = build_native_signature(
-            "POST", path, query=query,
-            accept="application/json",
-            content_type="application/json; charset=UTF-8",
-            signature_headers_order="X-Ca-Key,X-Ca-Nonce,X-Ca-Signature-Method,X-Ca-Timestamp,X-Ca-Version,token",
-            body=body_bytes,
-            signature_header_items=signature_header_items,
-        )
-        headers.pop("_nonce", None)
-        headers.pop("_timestamp", None)
-        headers["certifyid"] = ""
-        headers["User-Agent"] = "CA_iOS_SDK_2.0"
-        headers["appVersionCode"] = APP_VERSION
-        headers["appVersionName"] = IOS_APP_BUILD
-        headers["publicPlatform"] = "iOS"
-        headers["gl_dev_brand"] = "Apple"
-        headers["gl_app_build"] = IOS_APP_BUILD
-        headers["gl_dev_platform"] = "iOS"
-        headers["gl_dev_name"] = "iPhone"
-        headers["gl_os_version"] = "27.0"
-        headers["gl_dev_model"] = "iPhone 15 Pro"
-        headers["gl_dev_id"] = hardware_device_id or device_id
-        headers["gl_app_version"] = APP_VERSION
-        headers["gl_user_id"] = ""
-    else:
-        headers = build_native_signature(
-            "POST", path, query=query,
-            accept="application/json; charset=utf-8",
-            content_type="application/json; charset=utf-8",
-            signature_headers_order="x-ca-nonce,x-ca-timestamp,x-ca-key",
-            body=body_bytes,
-        )
-        headers["certifyid"] = ""
-        headers["ca_version"] = "1"
-        headers["User-Agent"] = NATIVE_ANDROID_UA
-        headers["appVersionCode"] = APP_VERSION
-        headers["appVersionName"] = ANDROID_APP_BUILD
-        headers["publicPlatform"] = "android"
-        headers.update(lynkco_common.NATIVE_DEVICE_HEADERS)
-        headers["gl_dev_id"] = device_id  # 覆盖 NATIVE_DEVICE_HEADERS 里的默认设备id
+    headers = build_ios_signature(
+        "POST", path, query=query,
+        accept="application/json",
+        content_type="application/json; charset=UTF-8",
+        body=body_bytes,
+    )
+    headers["certifyid"] = ""
+    headers.update(build_native_app_headers(
+        device_id=hardware_device_id or device_id,
+        extra={"certifyid": "", "gl_user_id": ""},
+    ))
 
     url = NATIVE_BASE_URL + path
-    resp = requests.post(url, params=query, data=body_bytes, headers=headers, timeout=30)
+    resp = requests.post(url, params=query, data=body_bytes, headers=headers, timeout=DEFAULT_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     if data.get("code") != "success":
@@ -437,8 +398,8 @@ def load_token() -> str:
     if cached:
         return cached
 
-    refresh_token_value = os.environ.get("LYNKCO_REFRESH_TOKEN") or user_data.get("refreshToken")
-    device_id = os.environ.get("LYNKCO_DEVICE_ID") or user_data.get("deviceId")
+    refresh_token_value = env_value("LYNKCO_REFRESH_TOKEN") or user_data.get("refreshToken")
+    device_id = env_value("LYNKCO_DEVICE_ID") or user_data.get("deviceId")
 
     if refresh_token_value and device_id:
         try:
@@ -449,7 +410,7 @@ def load_token() -> str:
         except Exception as e:
             print(f"[警告] refreshToken 自动续期失败: {e}，将退回使用静态 token。")
 
-    env_token = os.environ.get("LYNKCO_TOKEN")
+    env_token = env_value("LYNKCO_TOKEN")
     if env_token:
         return env_token.strip()
 

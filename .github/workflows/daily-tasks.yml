@@ -5,7 +5,7 @@
 #   - 登录环节存在滑块验证码，无法在 CI 中完全自动化，本工作流依赖
 #     refreshToken 自动续期获取 token（约30天有效，需定期人工更新）。
 #   - LYNKCO_APP_SECRETS 是领克官方 App 的应用级共用签名密钥集合
-#     （非个人账号凭证），一个 JSON 字符串 Secret 整合以下 6 个独立字段，
+#     （非个人账号凭证），一个 JSON 字符串 Secret 整合以下 4 个独立字段，
 #     必须配置，否则脚本无法计算请求签名。
 
 name: LynkCoHelperRunner
@@ -44,9 +44,11 @@ jobs:
         # App 共用签名密钥集合（JSON 字符串，详见 lynkco_common.py），必须配置，
         # 否则脚本会在计算签名时报错退出。字段名与 env.json 的 secrets 段一致：
         # {"nativeAppKey":"","nativeAppSecret":"","nativeAppCode":"",
-        #  "loginAppCode":"","glDevId":""}
+        #  "loginAppCode":""}
         LYNKCO_APP_SECRETS: ${{ secrets.LYNKCO_APP_SECRETS }}
         # Bark 推送图标 URL（可选项，不配则 Bark 使用默认图标）
         LYNKCO_BARK_ICON: ${{ secrets.LYNKCO_BARK_ICON }}
+        LYNKCO_TIMEOUT: ${{ vars.LYNKCO_TIMEOUT || '30' }}
+        LYNKCO_RETRIES: ${{ vars.LYNKCO_RETRIES || '2' }}
       run: |
         python ./LynkCoHelper/lynkco_daily_tasks.py

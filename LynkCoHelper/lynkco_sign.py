@@ -6,10 +6,9 @@
 （自动续期或人工获取），本脚本无需关心 token 具体来源。
 
 2026-07 抓包更新：真正"执行签到"的接口路径已从 /up/api/v1/user/sign 变为
-/up/api/v1/user/sign/upgrade，且改走原生 SDK 签名体系（build_native_signature，
-NATIVE_APP_KEY/SECRET，签名头顺序 x-ca-nonce,x-ca-key,x-ca-timestamp，POST body
-即使是空对象 "{}" 也要计算 Content-MD5）。2026-09-08 实测确认积分、签到状态和
-连续签到查询也可使用同一原生签名体系；daily task 不再依赖 H5 签名密钥。
+/up/api/v1/user/sign/upgrade，统一使用最新 HAR 的 iOS 原生签名头；POST body
+即使是空对象 "{}" 也要计算 Content-MD5。积分、签到状态和连续签到查询也使用同一
+签名体系；daily task 不再依赖 H5 签名密钥。
 """
 import json
 import sys
@@ -18,8 +17,8 @@ import requests
 
 from lynkco_common import (
     BASE_URL,
-    NATIVE_ANDROID_UA,
-    build_native_signature,
+    build_ios_signature,
+    build_native_app_headers,
     mask_sensitive,
     request_with_retry,
 )
@@ -45,16 +44,13 @@ class LynkCoSignClient:
         resp = request_with_retry(
             self.session, method, url,
             build_headers=lambda: {
-                **build_native_signature(
-                    method, path, query=kwargs.get("params"),
-                    accept="application/json; charset=utf-8",
-                    content_type="application/json; charset=utf-8",
-                    signature_headers_order="x-ca-nonce,x-ca-key,x-ca-timestamp",
+                **build_ios_signature(
+                    method, path, token=self.token, query=kwargs.get("params"),
+                    accept="application/json", content_type="application/json; charset=UTF-8",
                 ),
-                "token": self.token,
                 "ca_version": "1",
                 "x-requiretoken": "false",
-                "User-Agent": NATIVE_ANDROID_UA,
+                **build_native_app_headers(),
                 **extra_headers,
             },
             **kwargs,
@@ -70,23 +66,20 @@ class LynkCoSignClient:
         return resp
 
     def _native_request(self, method: str, path: str, body: bytes = None, **kwargs) -> requests.Response:
-        """走 App 原生 SDK 签名体系（build_native_signature），用于 sign/upgrade 等写操作接口。"""
+        """走公共 iOS 原生签名体系，用于 sign/upgrade 等写操作接口。"""
         extra_headers = kwargs.pop("extra_headers", {})
         url = BASE_URL + path
         resp = request_with_retry(
             self.session, method, url,
             build_headers=lambda: {
-                **build_native_signature(
-                    method, path,
-                    accept="application/json; charset=utf-8",
-                    content_type="application/json; charset=utf-8",
-                    signature_headers_order="x-ca-nonce,x-ca-key,x-ca-timestamp",
+                **build_ios_signature(
+                    method, path, token=self.token,
+                    accept="application/json", content_type="application/json; charset=UTF-8",
                     body=body,
                 ),
-                "token": self.token,
                 "ca_version": "1",
                 "x-requiretoken": "false",
-                "User-Agent": NATIVE_ANDROID_UA,
+                **build_native_app_headers(),
                 **extra_headers,
             },
             data=body,

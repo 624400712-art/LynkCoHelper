@@ -4,13 +4,14 @@
 （build_native_signature），以及 env.json 读写辅助函数
 （load_env_data / save_env_fields）。
 
-env.json 结构（三个子对象）：
+env.json 结构（四个子对象）：
     {
       "user": {"username": "", "password": "", "token": "", "refreshToken": "", "deviceId": "",
                 "tokenExpireAt": ""},
       "secrets": {"nativeAppKey": "", "nativeAppSecret": "", "nativeAppCode": "",
-                  "loginAppCode": "", "glDevId": ""},
-      "notify": {"barkKey": ""}
+                  "loginAppCode": ""},
+      "notify": {"barkKey": ""},
+      "ai": {"provider": "chatanywhere", "model": "gpt-4o-mini", "apiKey": ""}
     }
 
 密钥读取优先级：单独环境变量 > 整合环境变量 LYNKCO_APP_SECRETS（JSON 字符串，
@@ -29,11 +30,18 @@ import requests.exceptions
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "env.json")
 
+
+def env_value(name: str, default: str = "") -> str:
+    """Read one string environment value with consistent whitespace handling."""
+    value = os.environ.get(name)
+    return value.strip() if isinstance(value, str) and value.strip() else default
+
 # 网络请求默认超时（秒），GitHub Actions runner 到领克服务器延迟较高，
 # 15 秒不够。可通过环境变量覆盖。
-DEFAULT_TIMEOUT = int(os.environ.get("LYNKCO_TIMEOUT", "30"))
+DEFAULT_TIMEOUT = int(env_value("LYNKCO_TIMEOUT", "30"))
+AI_TIMEOUT = int(env_value("LYNKCO_AI_TIMEOUT", "60"))
 # 超时/断连后自动重试次数（每次间隔 3 秒），重试时会重新生成签名。
-DEFAULT_RETRIES = 2
+DEFAULT_RETRIES = int(env_value("LYNKCO_RETRIES", "2"))
 
 # 密钥字段名 -> (环境变量名, env.json["secrets"] 字段名)
 _SECRET_SPECS = {
@@ -41,13 +49,12 @@ _SECRET_SPECS = {
     "NATIVE_APP_SECRET": ("LYNKCO_NATIVE_APP_SECRET", "nativeAppSecret"),
     "NATIVE_APP_CODE": ("LYNKCO_NATIVE_APP_CODE", "nativeAppCode"),
     "LOGIN_APP_CODE": ("LYNKCO_LOGIN_APP_CODE", "loginAppCode"),
-    "NATIVE_GL_DEV_ID": ("LYNKCO_NATIVE_GL_DEV_ID", "glDevId"),
 }
 
 
 def _load_bundled_secrets() -> dict:
     """解析整合环境变量 LYNKCO_APP_SECRETS，未配置或解析失败时返回空 dict。"""
-    raw = os.environ.get("LYNKCO_APP_SECRETS", "").strip()
+    raw = env_value("LYNKCO_APP_SECRETS")
     if not raw:
         return {}
     try:
@@ -61,7 +68,7 @@ def _get_secret(name: str) -> str:
     """按“单独环境变量 > LYNKCO_APP_SECRETS > env.json[secrets] 字段”优先级取值。"""
     env_var, json_key = _SECRET_SPECS[name]
     value = (
-        os.environ.get(env_var)
+        env_value(env_var)
         or _load_bundled_secrets().get(json_key)
         or load_env_data().get("secrets", {}).get(json_key)
     )
@@ -77,30 +84,77 @@ def _get_secret(name: str) -> str:
 BASE_URL = "https://app-api-gw-toc.lynkco.com"
 NATIVE_BASE_URL = "https://app-services.lynkco.com.cn"
 
-DEFAULT_USER_AGENT = (
-    "Mozilla/5.0 (Linux; Android 13; sdk_gphone64_arm64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.123 "
-    "Mobile Safari/537.36"
-)
+NATIVE_APP_UA = "CA_iOS_SDK_2.0"
 
-NATIVE_ANDROID_UA = "ALIYUN-ANDROID-UA"
-
-APP_VERSION = "4.2.7"
-ANDROID_APP_BUILD = "402071520"
+APP_VERSION = "4.2.8"
+APP_BUILD = "40208072"
+IOS_DEVICE_NAME = "iPhone"
+IOS_DEVICE_MODEL = "iPhone 15 Pro"
+IOS_OS_VERSION = "27.0.1"
+MAX_COMMENT_CHARS = 500
+IOS_SIGNATURE_HEADERS = "X-Ca-Key,X-Ca-Nonce,X-Ca-Signature-Method,X-Ca-Timestamp,X-Ca-Version,token"
 
 
 def _build_native_device_headers() -> dict:
-    """设备指纹请求头，仅 gl_dev_id 来自配置，其余为固定机型字段。"""
+    """Build the fixed iOS device headers from the latest captured request."""
     return {
-        "gl_dev_name": "sdk_gphone64_arm64",
-        "gl_dev_model": "sdk_gphone64_arm64",
-        "gl_dev_brand": "Google",
-        "gl_dev_platform": "android",
-        "gl_os_version": "33",
+        "gl_dev_name": IOS_DEVICE_NAME,
+        "gl_dev_model": IOS_DEVICE_MODEL,
+        "gl_dev_brand": "Apple",
+        "gl_dev_platform": "iOS",
+        "gl_os_version": IOS_OS_VERSION,
         "gl_app_version": APP_VERSION,
-        "gl_app_build": ANDROID_APP_BUILD,
-        "gl_dev_id": _get_secret("NATIVE_GL_DEV_ID"),
+        "gl_app_build": APP_BUILD,
+        "gl_dev_id": env_value("LYNKCO_DEVICE_ID") or
+                     str((load_env_data().get("user") or {}).get("deviceId") or "").strip(),
     }
+
+
+def build_native_app_headers(device_id: str = None, token: str = None,
+                             account_id: str = None, extra: dict = None) -> dict:
+    """Build the single iOS header set captured from the latest HAR."""
+    headers = {
+        "User-Agent": NATIVE_APP_UA,
+        "appVersionCode": APP_VERSION,
+        "appVersionName": APP_BUILD,
+        "publicPlatform": "iOS",
+        **_build_native_device_headers(),
+    }
+    if device_id:
+        headers["gl_dev_id"] = device_id
+    if token:
+        headers["svcsid"] = token
+    if account_id:
+        headers["gl_user_id"] = account_id
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def build_ios_security_info() -> str:
+    """Build the non-secret iOS risk metadata used by the share endpoint."""
+    device_id = _build_native_device_headers()["gl_dev_id"]
+    return json.dumps({
+        "osVersion": IOS_OS_VERSION,
+        "platform": "ios",
+        "os": "iOS",
+        "brand": "Apple",
+        "model": IOS_DEVICE_MODEL,
+        "appVersion": APP_VERSION,
+        "isUsingVpn": "true",
+        "isSetProxy": "true",
+        "isJailbreak": "false",
+        "isCharging": "4",
+        "battery": "95",
+        "networkType": "NETWORK_5G",
+        "screenResolution": "1179 * 2556",
+        "channel": "ios%E5%AE%98%E6%96%B9",
+        "geelyDeviceId": device_id,
+        "deviceUUID": device_id,
+        "deviceToken": "",
+    }, ensure_ascii=False, separators=(",", ":"))
+
+
 
 
 # 以下模块级“常量”通过 __getattr__（PEP 562）惰性求值，取值时才读取配置。
@@ -109,7 +163,6 @@ _LAZY_ATTRS = {
     "NATIVE_APP_SECRET": lambda: _get_secret("NATIVE_APP_SECRET"),
     "NATIVE_APP_CODE": lambda: _get_secret("NATIVE_APP_CODE"),
     "LOGIN_APP_CODE": lambda: _get_secret("LOGIN_APP_CODE"),
-    "NATIVE_DEVICE_HEADERS": _build_native_device_headers,
 }
 
 
@@ -149,7 +202,7 @@ def build_native_signature(method: str, path: str, query: dict = None,
                             signature_headers_order: str = "x-ca-nonce,x-ca-timestamp,x-ca-key",
                             body: bytes = None,
                             extra_ca_headers: dict = None,
-                            signature_header_items: list = None) -> dict:
+                            signature_header_items=None) -> dict:
     """
     复刻领克 App 原生 SDK 访问 app-services.lynkco.com.cn 网关的签名逻辑，
     对照阿里云官方 SDK `SignUtil.buildStringToSign` 实现：
@@ -160,8 +213,8 @@ def build_native_signature(method: str, path: str, query: dict = None,
     参数说明：
         extra_ca_headers: 额外的 x-ca- 前缀头，与默认的 x-ca-key/nonce/timestamp
             一起按字典序排序参与签名。
-        signature_header_items: 传入 [(name, value), ...] 可完全自定义参与签名
-            的 header 集合/顺序/大小写（部分接口如 iOS 端登录需要），不传则用默认模式。
+        signature_header_items: 传入 [(name, value), ...] 或接收 (nonce, timestamp)
+            并返回该列表的函数，可自定义参与签名的 header 集合/顺序/大小写。
         body: 传入则计算 Content-MD5 = Base64(MD5(body))，部分登录接口会校验，
             默认接口（refresh/getShareCode）无需传。
 
@@ -178,7 +231,8 @@ def build_native_signature(method: str, path: str, query: dict = None,
     parts = [method.upper(), "\n", accept, "\n", content_md5, "\n", content_type, "\n", date_str, "\n"]
 
     if signature_header_items is not None:
-        header_items = signature_header_items
+        header_items = (signature_header_items(nonce, timestamp)
+                        if callable(signature_header_items) else signature_header_items)
         result_headers = {}
         for name, value in header_items:
             parts.append(f"{name}:{value}")
@@ -221,18 +275,46 @@ def build_native_signature(method: str, path: str, query: dict = None,
     return result
 
 
+def build_ios_signature(method: str, path: str, token: str = "", query: dict = None,
+                        body: bytes = None,
+                        accept: str = "application/json",
+                        content_type: str = "application/json; charset=UTF-8") -> dict:
+    """Build the exact iOS signature header set captured in the latest HAR."""
+    normalized_token = token or ""
+
+    def signature_items(nonce, timestamp):
+        return [
+            ("X-Ca-Key", _get_secret("NATIVE_APP_KEY")),
+            ("X-Ca-Nonce", nonce),
+            ("X-Ca-Signature-Method", "HmacSHA256"),
+            ("X-Ca-Timestamp", timestamp),
+            ("X-Ca-Version", "1"),
+            ("token", normalized_token),
+        ]
+
+    headers = build_native_signature(
+        method, path, query=query, accept=accept, content_type=content_type,
+        body=body, signature_headers_order=IOS_SIGNATURE_HEADERS,
+        signature_header_items=signature_items,
+    )
+    headers.pop("_nonce", None)
+    headers.pop("_timestamp", None)
+    return headers
+
+
 def load_env_data() -> dict:
-    """读取 env.json，返回 {"user": {...}, "secrets": {...}, "notify": {...}} 结构；文件不存在或字段缺失时对应子对象为空 dict。"""
+    """读取 env.json，返回标准配置节；缺失节使用空 dict。"""
     if not os.path.exists(ENV_FILE):
-        return {"user": {}, "secrets": {}, "notify": {}}
+        return {"user": {}, "secrets": {}, "notify": {}, "ai": {}}
     with open(ENV_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
     if not isinstance(data, dict):
-        return {"user": {}, "secrets": {}, "notify": {}}
+        return {"user": {}, "secrets": {}, "notify": {}, "ai": {}}
     return {
         "user": data.get("user") or {},
         "secrets": data.get("secrets") or {},
         "notify": data.get("notify") or {},
+        "ai": data.get("ai") or {},
     }
 
 

@@ -15,7 +15,7 @@ import os
 import sys
 import time
 
-from lynkco_common import mask_sensitive
+from lynkco_common import env_value, mask_sensitive
 from lynkco_login import load_token
 from lynkco_notify import build_markdown_report, send_bark_notification
 from lynkco_sign import LynkCoSignClient
@@ -23,7 +23,7 @@ from lynkco_share import LynkCoShareClient
 
 # 签到/分享完成后，等待多久再查询"之后积分"，单位秒。经真机验证 3~5 秒足够
 # 让服务端把能量体变化同步到 myEnergy 接口，可通过环境变量覆盖。
-ENERGY_REFRESH_DELAY_SECONDS = float(os.environ.get("LYNKCO_ENERGY_DELAY", "5"))
+ENERGY_REFRESH_DELAY_SECONDS = float(env_value("LYNKCO_ENERGY_DELAY", "5"))
 
 EP_MY_ENERGY = "/app/energy/myEnergy"
 
@@ -100,9 +100,7 @@ def run_and_notify() -> dict:
     print("\n=== 推送内容预览 ===")
     print(markdown_body)
 
-    icon = os.environ.get(
-        "LYNKCO_BARK_ICON"
-    )
+    icon = env_value("LYNKCO_BARK_ICON") or None
     try:
         notify_result = send_bark_notification(
             title="领克App · 每日任务",
