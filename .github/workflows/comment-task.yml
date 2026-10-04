@@ -2,8 +2,8 @@ name: LynkCo Comment Task
 
 on:
   schedule:
-    # Daily at 09:17 China time, separate from sign/share at 08:00.
-    - cron: "17 1 * * *"
+    # Daily at 09:17, 15:17, and 21:17 China time.
+    - cron: "17 1,7,13 * * *"
   workflow_dispatch:
     inputs:
       publish:
@@ -85,7 +85,7 @@ jobs:
           GLM_MODEL: ${{ vars.GLM_MODEL || 'glm-4v-flash' }}
           LYNKCO_BARK_KEY: ${{ secrets.LYNKCO_BARK_KEY }}
           LYNKCO_BARK_ICON: ${{ secrets.LYNKCO_BARK_ICON }}
-          LYNKCO_COMMENT_MAX_PER_RUN: ${{ vars.LYNKCO_COMMENT_MAX_PER_RUN || '3' }}
+          LYNKCO_COMMENT_MAX_PER_RUN: ${{ vars.LYNKCO_COMMENT_MAX_PER_RUN || '1' }}
           LYNKCO_COMMENT_MAX_AGE_HOURS: ${{ vars.LYNKCO_COMMENT_MAX_AGE_HOURS || '48' }}
           LYNKCO_COMMENT_FEED_PAGES: ${{ vars.LYNKCO_COMMENT_FEED_PAGES || '1' }}
           LYNKCO_TIMEOUT: ${{ vars.LYNKCO_TIMEOUT || '30' }}
