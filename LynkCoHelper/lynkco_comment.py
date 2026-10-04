@@ -411,7 +411,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     error_category = "configuration_invalid"
     try:
-        maximum = args.max_comments if args.max_comments is not None else _int_environment("LYNKCO_COMMENT_MAX_PER_RUN", 1)
+        maximum = args.max_comments if args.max_comments is not None else _int_environment("LYNKCO_COMMENT_MAX_PER_RUN", 3)
         age = _int_environment("LYNKCO_COMMENT_MAX_AGE_HOURS", 48)
         feed_pages = _int_environment("LYNKCO_COMMENT_FEED_PAGES", 1)
         if not 1 <= maximum <= 10 or not 1 <= age <= 168 or not 1 <= feed_pages <= 20:

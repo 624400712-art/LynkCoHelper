@@ -8,7 +8,7 @@ from lynkco_glm import generate_comment as _generate_glm_comment
 
 
 DEFAULT_CHATANYWHERE_MODEL = "gpt-4o-mini"
-DEFAULT_GLM_MODEL = "glm-4.6v-flash"
+DEFAULT_GLM_MODEL = "glm-4v-flash"
 SUPPORTED_PROVIDERS = frozenset(("chatanywhere", "glm"))
 
 

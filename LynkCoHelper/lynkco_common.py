@@ -92,6 +92,7 @@ IOS_DEVICE_NAME = "iPhone"
 IOS_DEVICE_MODEL = "iPhone 15 Pro"
 IOS_OS_VERSION = "27.0.1"
 MAX_COMMENT_CHARS = 500
+AI_PROMPT_MAX_CHARS = 50
 IOS_SIGNATURE_HEADERS = "X-Ca-Key,X-Ca-Nonce,X-Ca-Signature-Method,X-Ca-Timestamp,X-Ca-Version,token"
 
 

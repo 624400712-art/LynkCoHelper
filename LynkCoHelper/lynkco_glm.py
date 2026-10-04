@@ -23,7 +23,7 @@ class _EndpointSession:
         return self._session.post(API_URL, **kwargs)
 
 
-def generate_comment(post: dict, api_key: str, model: str = "glm-4.6v-flash", session=None) -> str:
+def generate_comment(post: dict, api_key: str, model: str = "glm-4v-flash", session=None) -> str:
     """Generate a comment through GLM while preserving the existing contract."""
     return _generate_comment(
         post,
