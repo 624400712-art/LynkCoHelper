@@ -2,14 +2,7 @@
 # 郑重告知：本程序源码仅供学习研究使用，使用该程序造成的一切后果与程序作者无关。本项目并非拿来即用，有技术门槛！！！
 ---
 
-领+ 的旧版命令行脚本，支持领克 App 每日签到、分享任务、积分查询与 Bark 推送，可通过 GitHub Actions 定时运行。仓库还提供独立的图文动态评论任务，默认演练、发布需显式开启。
-
-## 相关仓库
-
-- 桌面客户端：[`shovelshit/lynkco-plus-desktop`](https://github.com/shovelshit/lynkco-plus-desktop)
-- 云端 Worker 与管理后台：[`shovelshit/LynkCoHelper-Cloud`](https://github.com/shovelshit/LynkCoHelper-Cloud)
-
-本仓库保留原有命令行脚本和 App 逆向工具；桌面客户端已经迁移到独立仓库，云端任务也由独立 Worker 负责。
+支持领克 App 每日签到、分享任务、积分查询与 Bark 推送，可通过 GitHub Actions 定时运行。仓库同时提供独立的图文动态评论任务，默认演练，发布需显式开启。
 
 ## 功能状态
 
@@ -22,7 +15,6 @@
 - [x] token 自动续期（refreshToken 双方案兜底）+ 本地过期时间缓存，避免调试时频繁续期
 - [x] 短信验证码登录全流程（含本地极验滑块辅助页面）
 - [x] GitHub Actions 定时执行，环境变量 / `env.json` 双配置方式，密钥零硬编码
-- [x] `nativeAppKey` / `nativeAppSecret` 全自动提取：x86_64 镜像（libndk 翻译）+ jdb 断点，本地三平台与 CI 均可用，日志全程脱敏
 
 ### 暂未完成 / 已知限制
 
