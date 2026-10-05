@@ -2,7 +2,7 @@
 """Provider-neutral facade for comment generation."""
 
 from lynkco_common import env_value, load_env_data
-from lynkco_chatanywhere import CommentGenerationError
+from lynkco_ai_common import CommentGenerationError
 from lynkco_chatanywhere import generate_comment as _generate_chatanywhere_comment
 from lynkco_glm import generate_comment as _generate_glm_comment
 

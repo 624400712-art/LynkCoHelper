@@ -1,36 +1,18 @@
 # -*- coding: utf-8 -*-
-"""GLM provider using the same OpenAI-compatible request contract."""
+"""GLM provider using the shared OpenAI-compatible request contract."""
 
-import requests
-
-from lynkco_chatanywhere import CommentGenerationError, generate_comment as _generate_comment
+from lynkco_ai_common import CommentGenerationError, generate_comment as _generate_comment
+from lynkco_ai_images import prepare_glm_images
 
 
 API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 
 
-class _EndpointSession:
-    """Route the existing generator's request to the GLM endpoint."""
-
-    def __init__(self, session=None):
-        self._session = session or requests.Session()
-        self.endpoint = API_URL
-
-    def post(self, _url, **kwargs):
-        headers = dict(kwargs.pop("headers", {}) or {})
-        headers.setdefault("Content-Type", "application/json")
-        kwargs["headers"] = headers
-        return self._session.post(API_URL, **kwargs)
-
-
 def generate_comment(post: dict, api_key: str, model: str = "glm-4v-flash", session=None) -> str:
-    """Generate a comment through GLM while preserving the existing contract."""
-    return _generate_comment(
-        post,
-        api_key,
-        model=model,
-        session=_EndpointSession(session),
-    )
+    """Generate a comment through GLM."""
+    return _generate_comment(post, api_key, endpoint=API_URL, model=model, session=session,
+                             headers={"Content-Type": "application/json"},
+                             prepare_images=prepare_glm_images)
 
 
 __all__ = ["API_URL", "CommentGenerationError", "generate_comment"]
