@@ -20,16 +20,19 @@ MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 MAX_IMAGE_PIXELS = 36_000_000
 MAX_IMAGE_EDGE = 6000
 COMPRESSED_EDGE = 1600
-IMAGE_CDN_HOST = "app-cdn.lynkco.com"
 DOWNLOAD_DEADLINE_SECONDS = 30
 
 
 def _check_public_host(url: str) -> None:
-    parsed = urlsplit(url)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+    try:
+        parsed = urlsplit(url)
+        port = parsed.port
+    except (TypeError, ValueError) as exc:
+        raise CommentGenerationError("动态图片地址无效") from exc
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username is not None or parsed.password is not None:
         raise CommentGenerationError("动态图片地址无效")
-    if parsed.hostname.casefold() != IMAGE_CDN_HOST or parsed.port not in (None, 443):
-        raise CommentGenerationError("动态图片不属于受信任的领克图片域名")
+    if port not in (None, 443):
+        raise CommentGenerationError("动态图片仅允许 HTTPS 443 端口")
     try:
         addresses = socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)
         if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):

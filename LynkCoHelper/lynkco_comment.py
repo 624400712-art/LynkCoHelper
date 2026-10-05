@@ -152,12 +152,12 @@ def _summary(result):
                        ("failed", "失败"), ("uncertain", "结果待核对")):
         if result[key]:
             lines.append(f"- {label}：{result[key]}")
-    reasons = sorted({
-        item.get("reason") for item in result["items"]
-        if item.get("status") == "generation_skipped" and item.get("reason")
-    })
-    if reasons:
-        lines.append(f"- 生成原因：{'；'.join(reasons[:3])}")
+    for item in result["items"]:
+        if item.get("reason"):
+            lines.append(f"- 动态：{item.get('title') or item['id']}")
+            lines.append(f"- 原因：{item['reason']}")
+            if item.get("share_url"):
+                lines.append(f"- 详情：{item['share_url']}")
     if result["error"]:
         lines.append(f"- 错误类别：{result['error']}")
     if result["uncertain"]:
@@ -169,16 +169,34 @@ def _bark_icon():
     return env_value("LYNKCO_BARK_ICON") or None
 
 
+def _article_url(post):
+    # Never forward a feed-provided jump URL to Bark.
+    identifier = post.get("id")
+    if post.get("kind") == "article" and isinstance(identifier, str) and re.fullmatch(r"[0-9]+", identifier):
+        return article_share_url(identifier)
+    return None
+
+
+def _failure_item(post, status, reason):
+    item = {"id": post["id"], "status": status, "reason": reason,
+            "title": (post.get("title") or "领克动态").replace("\n", " ").replace("\r", " ")}
+    url = _article_url(post)
+    if url:
+        item["share_url"] = url
+    return item
+
+
 def _notify_generated(post, comment, status, result):
     # UGC links are not trusted or published; article links are generated locally.
-    url = article_share_url(post["id"]) if post.get("kind") == "article" else None
+    url = _article_url(post)
     article_title = post.get("title") or "领克动态"
     try:
         send_bark_notification(
             title=f"领克动态评论｜{status}",
             markdown_body=(f"**动态**：{article_title}\n\n"
                            f"**评论**：{comment}\n\n"
-                           f"**结果**：{status}"),
+                           f"**结果**：{status}"
+                           + (f"\n\n**详情**：{url}" if url else "")),
             group="LynkCo评论", icon=_bark_icon(), open_url=url,
         )
     except Exception as exc:
@@ -228,7 +246,7 @@ def _run_comment_task_unlocked(max_comments: int, dry_run: bool, state_path: Pat
             if not dry_run and (post.get("kind") != "article" or not share_client or
                                 not isinstance(post.get("author_id"), str) or not post["author_id"].strip()):
                 result["skipped"] += 1
-                result["items"].append({"id": post_id, "status": "metadata_skipped"})
+                result["items"].append(_failure_item(post, "metadata_skipped", "发布元数据不完整"))
                 _log(f"跳过 id={post_id} reason=发布元数据不完整")
                 continue
             if post.get("kind") == "article" and share_client is not None:
@@ -236,21 +254,19 @@ def _run_comment_task_unlocked(max_comments: int, dry_run: bool, state_path: Pat
                 try:
                     post = fetch_article_detail(share_client, post)
                 except (ValueError, RuntimeError, OSError) as detail_error:
-                    detail_status, _ = _detail_failure_status(detail_error)
+                    detail_status, detail_reason = _detail_failure_status(detail_error)
                     result["skipped"] += 1
-                    result["items"].append({"id": post_id, "status": detail_status})
+                    result["items"].append(_failure_item(post, detail_status, detail_reason))
                     _log(f"详情跳过 id={post_id} status={detail_status} error={detail_error}")
                     continue
             try:
                 comment = generate_comment(post, api_key, model=model)
             except CommentGenerationError as generation_error:
                 result["skipped"] += 1
-                result["items"].append({
-                    "id": post_id,
-                    "status": "generation_skipped",
-                    "reason": str(generation_error) or "模型评论生成失败",
-                })
-                _log(f"模型跳过 id={post_id} reason={generation_error}")
+                result["items"].append(_failure_item(
+                    post, "generation_skipped", str(generation_error) or "模型评论生成失败"))
+                _log(f"模型跳过 id={post_id} reason={generation_error}"
+                     + (f" share_url={_article_url(post)}" if _article_url(post) else ""))
                 continue
             generated_candidates += 1
             _log(f"模型生成 id={post_id} comment={comment}")
@@ -268,7 +284,7 @@ def _run_comment_task_unlocked(max_comments: int, dry_run: bool, state_path: Pat
                 except (ValueError, RuntimeError, OSError) as detail_error:
                     detail_status, status = _detail_failure_status(detail_error)
                     result["skipped"] += 1
-                    result["items"].append({"id": post_id, "status": detail_status})
+                    result["items"].append(_failure_item(post, detail_status, status))
                     continue
                 # Quarantine before the POST so a process crash cannot silently retry it.
                 state["uncertain"][post_id] = {"recorded_at": datetime.now(UTC).isoformat()}
@@ -329,8 +345,9 @@ def _run_comment_task_unlocked(max_comments: int, dry_run: bool, state_path: Pat
             result["pending"] = len(candidates) - attempted
     if not generated_candidates:
         try:
+            first_url = next((item["share_url"] for item in result["items"] if item.get("share_url")), None)
             send_bark_notification(title="本轮未生成评论", markdown_body=_summary(result),
-                                    group="LynkCo评论", icon=_bark_icon())
+                                    group="LynkCo评论", icon=_bark_icon(), open_url=first_url)
         except Exception as exc:
             result["bark_failed"] = True
             _log(f"本轮汇总 Bark 推送失败 error={type(exc).__name__}: {exc}")
