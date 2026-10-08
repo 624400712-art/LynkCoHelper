@@ -197,7 +197,10 @@ def _notify_both(title, markdown_body, result=None, group="LynkCo评论",
             result["bark_failed"] = True
         _log(f"Bark 推送失败 error={type(exc).__name__}: {exc}")
     try:
-        send_serverchan_notification(title, markdown_body)
+        sc_data = send_serverchan_notification(title, markdown_body)
+        sc_code = sc_data.get("code") if isinstance(sc_data, dict) else "?"
+        sc_pushid = sc_data.get("data", {}).get("pushid") if isinstance(sc_data, dict) else None
+        _log(f"Server酱 推送结果 code={sc_code} pushid={sc_pushid}（code=0 表示微信已收到）")
     except Exception as exc:
         if result is not None:
             result["serverchan_failed"] = True
