@@ -119,3 +119,38 @@ def send_bark_notification(title: str, markdown_body: str, group: str = "LynkCo�
     )
     resp.raise_for_status()
     return resp.json()
+
+
+SERVERCHAN_SEND_URL = "https://sctapi.ftqq.com/{sendkey}.send"
+SERVERCHAN_TIMEOUT = (5, 15)
+
+
+def send_serverchan_notification(title: str, markdown_body: str,
+                                 sendkey: str = None) -> dict:
+    """通过 Server酱（ServerChan³）推送一条 Markdown 格式的通知到微信。
+
+    sendkey 不传则依次读取参数、环境变量 LYNKCO_SERVERCHAN_SENDKEY、
+    env.json 的 notify.serverchanSendkey，均未配置时返回
+    {"skipped": True} 且不抛异常（推送失败也不影响签到/分享结果）。
+    """
+    sendkey = (sendkey or env_value("LYNKCO_SERVERCHAN_SENDKEY")
+               or load_env_data().get("notify", {}).get("serverchanSendkey", "").strip())
+    if not sendkey:
+        print("[提示] 未配置 LYNKCO_SERVERCHAN_SENDKEY，跳过 Server酱 推送。")
+        return {"skipped": True}
+
+    payload = {
+        "title": title,
+        "desp": markdown_body,
+    }
+    # 与 Bark 相同：不继承桌面代理，独立短超时，避免连接挂死
+    session = requests.Session()
+    session.trust_env = False
+    resp = session.post(
+        SERVERCHAN_SEND_URL.format(sendkey=sendkey), data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded; charset=utf-8"},
+        timeout=SERVERCHAN_TIMEOUT,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return data if isinstance(data, dict) else {"raw": data}
