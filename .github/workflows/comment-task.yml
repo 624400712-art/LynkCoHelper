@@ -85,6 +85,7 @@ jobs:
           GLM_MODEL: ${{ vars.GLM_MODEL || 'glm-4v-flash' }}
           LYNKCO_BARK_KEY: ${{ secrets.LYNKCO_BARK_KEY }}
           LYNKCO_BARK_ICON: ${{ secrets.LYNKCO_BARK_ICON }}
+          LYNKCO_SERVERCHAN_SENDKEY: ${{ secrets.LYNKCO_SERVERCHAN_SENDKEY }}
           LYNKCO_COMMENT_MAX_PER_RUN: ${{ vars.LYNKCO_COMMENT_MAX_PER_RUN || '1' }}
           LYNKCO_COMMENT_MAX_AGE_HOURS: ${{ vars.LYNKCO_COMMENT_MAX_AGE_HOURS || '48' }}
           LYNKCO_COMMENT_FEED_PAGES: ${{ vars.LYNKCO_COMMENT_FEED_PAGES || '1' }}
