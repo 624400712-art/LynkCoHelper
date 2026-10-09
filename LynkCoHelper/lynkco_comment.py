@@ -18,7 +18,7 @@ from lynkco_ai import CommentGenerationError, generate_comment, load_ai_config
 from lynkco_common import env_value
 from lynkco_comment_client import CommentClient, CommentPostError, CommentPostUncertain
 from lynkco_comment_feed import eligible_posts, fetch_article_detail, fetch_recent_posts
-from lynkco_notify import send_bark_notification, send_serverchan_notification
+from lynkco_notify import send_bark_notification, send_pushplus_notification
 from lynkco_share import article_share_url
 
 
@@ -188,7 +188,7 @@ def _failure_item(post, status, reason):
 
 def _notify_both(title, markdown_body, result=None, group="LynkCo评论",
                  icon=None, open_url=None):
-    """同时推送 Bark 与 Server酱（微信）；任一失败只记标记，不影响主流程。"""
+    """同时推送 Bark 与 PushPlus（微信）；任一失败只记标记，不影响主流程。"""
     try:
         send_bark_notification(title, markdown_body, group=group,
                                icon=icon, open_url=open_url)
@@ -197,14 +197,14 @@ def _notify_both(title, markdown_body, result=None, group="LynkCo评论",
             result["bark_failed"] = True
         _log(f"Bark 推送失败 error={type(exc).__name__}: {exc}")
     try:
-        sc_data = send_serverchan_notification(title, markdown_body)
-        sc_code = sc_data.get("code") if isinstance(sc_data, dict) else "?"
-        sc_pushid = sc_data.get("data", {}).get("pushid") if isinstance(sc_data, dict) else None
-        _log(f"Server酱 推送结果 code={sc_code} pushid={sc_pushid}（code=0 表示微信已收到）")
+        pp_data = send_pushplus_notification(title, markdown_body)
+        pp_code = pp_data.get("code") if isinstance(pp_data, dict) else "?"
+        pp_msg = pp_data.get("msg") if isinstance(pp_data, dict) else None
+        _log(f"PushPlus 推送结果 code={pp_code} msg={pp_msg}（code=200 表示微信已收到）")
     except Exception as exc:
         if result is not None:
-            result["serverchan_failed"] = True
-        _log(f"Server酱 推送失败 error={type(exc).__name__}: {exc}")
+            result["pushplus_failed"] = True
+        _log(f"PushPlus 推送失败 error={type(exc).__name__}: {exc}")
 
 
 def _notify_generated(post, comment, status, result):

@@ -20,7 +20,7 @@ from lynkco_login import load_token
 from lynkco_notify import (
     build_markdown_report,
     send_bark_notification,
-    send_serverchan_notification,
+    send_pushplus_notification,
 )
 from lynkco_sign import LynkCoSignClient
 from lynkco_share import LynkCoShareClient
@@ -120,19 +120,19 @@ def run_and_notify() -> dict:
     print(json.dumps(mask_sensitive(notify_result), ensure_ascii=False, indent=2))
 
     try:
-        serverchan_result = send_serverchan_notification(
+        pushplus_result = send_pushplus_notification(
             title="领克App · 每日任务",
             markdown_body=markdown_body,
         )
     except Exception as e:
         # 与 Bark 相同：推送失败不影响签到/分享结果，只记录警告
-        print(f"[警告] Server酱 推送失败（不影响签到/分享结果）: {e}")
-        serverchan_result = {"skipped": True, "error": str(e)}
-    print("\n=== Server酱 推送结果 ===")
-    print(json.dumps(mask_sensitive(serverchan_result), ensure_ascii=False, indent=2))
+        print(f"[警告] PushPlus 推送失败（不影响签到/分享结果）: {e}")
+        pushplus_result = {"skipped": True, "error": str(e)}
+    print("\n=== PushPlus 推送结果 ===")
+    print(json.dumps(mask_sensitive(pushplus_result), ensure_ascii=False, indent=2))
 
     result["notify_result"] = notify_result
-    result["serverchan_result"] = serverchan_result
+    result["pushplus_result"] = pushplus_result
     return result
 
 
