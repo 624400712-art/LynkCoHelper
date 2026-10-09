@@ -360,9 +360,10 @@ def _run_comment_task_unlocked(max_comments: int, dry_run: bool, state_path: Pat
     finally:
         if candidates is not None:
             result["pending"] = len(candidates) - attempted
-    if not generated_candidates:
+    # 无候选/正常跳过时静默（避免浪费 Server酱每日额度）；有失败或异常才推送告警
+    if not generated_candidates and (result["failed"] or result["uncertain"] or result["error"]):
         first_url = next((item["share_url"] for item in result["items"] if item.get("share_url")), None)
-        _notify_both(title="本轮未生成评论", markdown_body=_summary(result),
+        _notify_both(title="评论任务异常", markdown_body=_summary(result),
                      result=result, group="LynkCo评论", icon=_bark_icon(), open_url=first_url)
     _log(
         f"任务结束：attempted={attempted} generated={result['generated']} "
