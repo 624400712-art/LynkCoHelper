@@ -60,6 +60,11 @@ def main():
     daily = load_json(".daily_result.json")
     activity = load_json(".comment_activity.json")
 
+    # 无任何数据（例如部署初期/当日任务均未落盘）时不推送空汇总
+    if not daily and not activity:
+        print("仓库中暂无当日数据（daily / comment 记录均缺失），跳过推送。")
+        return
+
     # 目标日期：优先取签到记录日期，否则取评论活动最新日期，否则当天北京日期
     target_day = daily.get("date") or ""
     if not target_day and activity:
