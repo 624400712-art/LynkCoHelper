@@ -187,8 +187,9 @@ def _failure_item(post, status, reason):
 
 
 def _notify_both(title, markdown_body, result=None, group="LynkCo评论",
-                 icon=None, open_url=None):
-    """同时推送 Bark 与 PushPlus（微信）；任一失败只记标记，不影响主流程。"""
+                 icon=None, open_url=None, push_wx=False):
+    """Bark 推送 + 日志；微信（PushPlus）推送默认由每日汇总 workflow 统一
+    发送，仅任务异常告警（push_wx=True）时才会即时推微信。"""
     try:
         send_bark_notification(title, markdown_body, group=group,
                                icon=icon, open_url=open_url)
@@ -196,21 +197,55 @@ def _notify_both(title, markdown_body, result=None, group="LynkCo评论",
         if result is not None:
             result["bark_failed"] = True
         _log(f"Bark 推送失败 error={type(exc).__name__}: {exc}")
+    if push_wx:
+        try:
+            pp_data = send_pushplus_notification(title, markdown_body)
+            pp_code = pp_data.get("code") if isinstance(pp_data, dict) else "?"
+            pp_msg = pp_data.get("msg") if isinstance(pp_data, dict) else None
+            _log(f"PushPlus 推送结果 code={pp_code} msg={pp_msg}（code=200 表示微信已收到）")
+        except Exception as exc:
+            if result is not None:
+                result["pushplus_failed"] = True
+            _log(f"PushPlus 推送失败 error={type(exc).__name__}: {exc}")
+
+
+def _record_activity(post, comment, status):
+    """把本次评论活动（时间/标题/评论内容/状态）追加写入 .comment_activity.json，
+    供每日汇总 workflow 合并推送。仅记录实际发布的评论，演练（dry-run）不记录。"""
     try:
-        pp_data = send_pushplus_notification(title, markdown_body)
-        pp_code = pp_data.get("code") if isinstance(pp_data, dict) else "?"
-        pp_msg = pp_data.get("msg") if isinstance(pp_data, dict) else None
-        _log(f"PushPlus 推送结果 code={pp_code} msg={pp_msg}（code=200 表示微信已收到）")
+        from pathlib import Path
+        import datetime as _dt
+        activity_path = Path(".comment_activity.json")
+        data = {}
+        if activity_path.exists():
+            try:
+                data = json.loads(activity_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                data = {}
+        now = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=8)
+        day = now.strftime("%Y-%m-%d")
+        record = {
+            "time": now.strftime("%H:%M"),
+            "title": (post.get("title") or "领克动态").replace("\n", " ").replace("\r", " "),
+            "comment": comment,
+            "status": status,
+        }
+        data.setdefault(day, []).append(record)
+        tmp = activity_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(activity_path)
+        _log("活动记录已写入 .comment_activity.json")
     except Exception as exc:
-        if result is not None:
-            result["pushplus_failed"] = True
-        _log(f"PushPlus 推送失败 error={type(exc).__name__}: {exc}")
+        _log(f"活动记录写入失败 error={type(exc).__name__}: {exc}")
 
 
 def _notify_generated(post, comment, status, result):
     # UGC links are not trusted or published; article links are generated locally.
     url = _article_url(post)
     article_title = post.get("title") or "领克动态"
+    # 只记录活动（供每日汇总推送），不即时推微信
+    if not result.get("_dry_run"):
+        _record_activity(post, comment, status)
     _notify_both(
         title=f"领克动态评论｜{status}",
         markdown_body=(f"**动态**：{article_title}\n\n"
@@ -238,7 +273,7 @@ def _run_comment_task_unlocked(max_comments: int, dry_run: bool, state_path: Pat
     now = datetime.now(UTC)
     result = {"dry_run": dry_run, "confirmed": 0, "generated": 0,
               "skipped": 0, "pending": 0, "failed": 0, "uncertain": 0,
-              "items": [], "error": ""}
+              "items": [], "error": "", "_dry_run": bool(dry_run)}
     candidates = None
     attempted = 0
     generated_candidates = 0
@@ -360,11 +395,12 @@ def _run_comment_task_unlocked(max_comments: int, dry_run: bool, state_path: Pat
     finally:
         if candidates is not None:
             result["pending"] = len(candidates) - attempted
-    # 无候选/正常跳过时静默（避免浪费 Server酱每日额度）；有失败或异常才推送告警
+    # 无候选/正常跳过时静默（避免打扰）；有失败或异常才推送告警（含微信 PushPlus）
     if not generated_candidates and (result["failed"] or result["uncertain"] or result["error"]):
         first_url = next((item["share_url"] for item in result["items"] if item.get("share_url")), None)
         _notify_both(title="评论任务异常", markdown_body=_summary(result),
-                     result=result, group="LynkCo评论", icon=_bark_icon(), open_url=first_url)
+                     result=result, group="LynkCo评论", icon=_bark_icon(), open_url=first_url,
+                     push_wx=True)
     _log(
         f"任务结束：attempted={attempted} generated={result['generated']} "
         f"confirmed={result['confirmed']} skipped={result['skipped']} "

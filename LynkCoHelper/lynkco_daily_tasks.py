@@ -104,35 +104,38 @@ def run_and_notify() -> dict:
     print("\n=== 推送内容预览 ===")
     print(markdown_body)
 
-    icon = env_value("LYNKCO_BARK_ICON") or None
+    # 微信推送统一由每日汇总 workflow（daily-summary.yml）在当天任务结束后
+    # 合并发送；这里只把当天签到/分享结果落盘到仓库，供汇总时读取。
     try:
-        notify_result = send_bark_notification(
-            title="领克App · 每日任务",
-            markdown_body=markdown_body,
-            icon=icon,
-        )
-    except Exception as e:
-        # 推送失败（网络问题/代理超时等）不应影响签到/分享本身已经成功执行
-        # 这一事实，只记录警告，不让整个流程以异常状态退出。
-        print(f"[警告] Bark 推送失败（不影响签到/分享结果）: {e}")
-        notify_result = {"skipped": True, "error": str(e)}
-    print("\n=== Bark 推送结果 ===")
-    print(json.dumps(mask_sensitive(notify_result), ensure_ascii=False, indent=2))
+        from datetime import datetime, timedelta, timezone
+        beijing = datetime.now(timezone(timedelta(hours=8)))
 
-    try:
-        pushplus_result = send_pushplus_notification(
-            title="领克App · 每日任务",
-            markdown_body=markdown_body,
-        )
-    except Exception as e:
-        # 与 Bark 相同：推送失败不影响签到/分享结果，只记录警告
-        print(f"[警告] PushPlus 推送失败（不影响签到/分享结果）: {e}")
-        pushplus_result = {"skipped": True, "error": str(e)}
-    print("\n=== PushPlus 推送结果 ===")
-    print(json.dumps(mask_sensitive(pushplus_result), ensure_ascii=False, indent=2))
+        def _point(resp):
+            return str((resp.get("data") or {}).get("point", "?"))
 
-    result["notify_result"] = notify_result
-    result["pushplus_result"] = pushplus_result
+        daily_record = {
+            "date": beijing.strftime("%Y-%m-%d"),
+            "time": beijing.strftime("%H:%M"),
+            "markdown": markdown_body,
+            "already_signed": bool(result.get("already_signed")),
+            "sign_success": bool((result.get("sign_result") or {}).get("success")),
+            "sign_message": (result.get("sign_result") or {}).get("message", ""),
+            "sign_reward": ((result.get("sign_result") or {}).get("data") or {}).get("rewardEnergyNumber"),
+            "continue_days": ((result.get("continue_info") or {}).get("data") or {}).get("continueDays"),
+            "sign_card": ((result.get("continue_info") or {}).get("data") or {}).get("signCardNumber"),
+            "share_ok": bool((result.get("share_result") or {}).get("ok")),
+            "share_title": (result.get("share_result") or {}).get("articleTitle", ""),
+            "energy_before": _point(result.get("energy_before") or {}),
+            "energy_after": _point(result.get("energy_after") or {}),
+        }
+        with open(".daily_result.json", "w", encoding="utf-8") as f:
+            json.dump(daily_record, f, ensure_ascii=False, indent=2)
+        print("=== 当日结果已落盘 .daily_result.json（汇总推送由 daily-summary 负责）===")
+    except Exception as e:
+        print(f"[警告] 当日结果落盘失败（不影响签到/分享结果）: {e}")
+
+    result["notify_result"] = {"skipped": True}
+    result["pushplus_result"] = {"skipped": True}
     return result
 
 
