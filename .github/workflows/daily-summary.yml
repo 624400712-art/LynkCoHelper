@@ -1,0 +1,28 @@
+name: LynkCo Daily Summary
+
+on:
+  schedule:
+    # Daily at 21:30 China time (UTC 13:30)
+    - cron: "30 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: LynkCoHelper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Push daily summary to WeChat
+        env:
+          LYNKCO_PUSHPLUS_TOKEN: ${{ secrets.LYNKCO_PUSHPLUS_TOKEN }}
+        run: python lynkco_daily_summary.py

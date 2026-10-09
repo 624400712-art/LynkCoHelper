@@ -13,7 +13,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
   actions: write
 
 concurrency:
@@ -98,6 +98,18 @@ jobs:
             python lynkco_comment.py --publish
           else
             python lynkco_comment.py --dry-run
+          fi
+      - name: Persist comment activity
+        if: ${{ always() }}
+        run: |
+          git config user.name "lynkco-bot"
+          git config user.email "actions@github.com"
+          git add .comment_activity.json
+          if git diff --cached --quiet; then
+            echo "No activity changes to commit."
+          else
+            git commit -m "chore: update comment activity [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
           fi
       - name: Preserve comment state
         if: ${{ always() && steps.restore.outcome == 'success' && (steps.restore.outputs.restored == 'true' || steps.bootstrap.outputs.ready == 'true') }}

@@ -18,6 +18,9 @@ on:
     - cron: "0 0 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   daily-tasks:
 
@@ -55,3 +58,16 @@ jobs:
         LYNKCO_RETRIES: ${{ vars.LYNKCO_RETRIES || '2' }}
       run: |
         python ./LynkCoHelper/lynkco_daily_tasks.py
+    - name: Persist daily result
+      if: ${{ always() }}
+      run: |
+        cd ./LynkCoHelper
+        git config user.name "lynkco-bot"
+        git config user.email "actions@github.com"
+        git add .daily_result.json
+        if git diff --cached --quiet; then
+          echo "No daily result changes to commit."
+        else
+          git commit -m "chore: update daily result [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+        fi
