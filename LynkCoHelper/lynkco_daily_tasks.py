@@ -120,13 +120,15 @@ def run_and_notify() -> dict:
             "already_signed": bool(result.get("already_signed")),
             "sign_success": bool((result.get("sign_result") or {}).get("success")),
             "sign_message": (result.get("sign_result") or {}).get("message", ""),
+            # 能量奖励（能量体，来自签到响应 rewardEnergyNumber）
             "sign_reward": ((result.get("sign_result") or {}).get("data") or {}).get("rewardEnergyNumber"),
             "continue_days": ((result.get("continue_info") or {}).get("data") or {}).get("continueDays"),
             "sign_card": ((result.get("continue_info") or {}).get("data") or {}).get("signCardNumber"),
             "share_ok": bool((result.get("share_result") or {}).get("ok")),
             "share_title": (result.get("share_result") or {}).get("articleTitle", ""),
-            "energy_before": _point(result.get("energy_before") or {}),
-            "energy_after": _point(result.get("energy_after") or {}),
+            # 积分（myEnergy 接口的 point 字段，签到+分享后的变化）
+            "points_before": _point(result.get("energy_before") or {}),
+            "points_after": _point(result.get("energy_after") or {}),
         }
         with open(".daily_result.json", "w", encoding="utf-8") as f:
             json.dump(daily_record, f, ensure_ascii=False, indent=2)

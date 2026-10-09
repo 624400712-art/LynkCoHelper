@@ -36,15 +36,22 @@ def build_summary_markdown(daily, activity, target_day):
             lines.append(f"- 连续签到：**{daily['continue_days']} 天**")
         if daily.get("sign_card") is not None:
             lines.append(f"- 签到卡剩余：**{daily['sign_card']} 张**")
-        if daily.get("energy_before") != "?" and daily.get("energy_after") != "?":
+        # 积分变化（myEnergy 的 point，与能量是两个独立数值；兼容旧版 energy_before/energy_after 字段名）
+        p_before = daily.get("points_before")
+        if p_before is None:
+            p_before = daily.get("energy_before")
+        p_after = daily.get("points_after")
+        if p_after is None:
+            p_after = daily.get("energy_after")
+        if p_before not in (None, "?") and p_after not in (None, "?"):
             try:
-                before = int(daily["energy_before"])
-                after = int(daily["energy_after"])
+                before = int(p_before)
+                after = int(p_after)
                 delta = after - before
                 sign = "+" if delta >= 0 else ""
                 lines.append(f"- 积分变化：**{sign}{delta}**（{before} → {after}）")
             except (TypeError, ValueError):
-                lines.append(f"- 积分：{daily['energy_before']} → {daily['energy_after']}")
+                lines.append(f"- 积分：{p_before} → {p_after}")
 
         lines.append("\n### 🔗 转发分享")
         if daily.get("share_ok"):
