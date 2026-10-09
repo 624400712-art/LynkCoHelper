@@ -37,7 +37,14 @@ def build_summary_markdown(daily, activity, target_day):
         if daily.get("sign_card") is not None:
             lines.append(f"- 签到卡剩余：**{daily['sign_card']} 张**")
         if daily.get("energy_before") != "?" and daily.get("energy_after") != "?":
-            lines.append(f"- 能量：{daily['energy_before']} → **{daily['energy_after']}**")
+            try:
+                before = int(daily["energy_before"])
+                after = int(daily["energy_after"])
+                delta = after - before
+                sign = "+" if delta >= 0 else ""
+                lines.append(f"- 积分变化：**{sign}{delta}**（{before} → {after}）")
+            except (TypeError, ValueError):
+                lines.append(f"- 积分：{daily['energy_before']} → {daily['energy_after']}")
 
         lines.append("\n### 🔗 转发分享")
         if daily.get("share_ok"):
