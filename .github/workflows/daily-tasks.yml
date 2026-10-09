@@ -62,6 +62,10 @@ jobs:
       if: ${{ always() }}
       run: |
         cd ./LynkCoHelper
+        if [ ! -f .daily_result.json ]; then
+          echo "No daily result file this run."
+          exit 0
+        fi
         git config user.name "lynkco-bot"
         git config user.email "actions@github.com"
         git add .daily_result.json

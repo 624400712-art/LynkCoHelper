@@ -102,6 +102,10 @@ jobs:
       - name: Persist comment activity
         if: ${{ always() }}
         run: |
+          if [ ! -f .comment_activity.json ]; then
+            echo "No comment activity file this run."
+            exit 0
+          fi
           git config user.name "lynkco-bot"
           git config user.email "actions@github.com"
           git add .comment_activity.json
