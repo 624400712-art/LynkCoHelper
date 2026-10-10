@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 领克 App 相关脚本的公共基础模块：App 原生阿里云 API 网关签名算法
 （build_native_signature），以及 env.json 读写辅助函数
@@ -83,6 +83,8 @@ def _get_secret(name: str) -> str:
 
 BASE_URL = "https://app-api-gw-toc.lynkco.com"
 NATIVE_BASE_URL = "https://app-services.lynkco.com.cn"
+# H5 网关（领克 App 内 WebView 页面调用的后端），能量体余额等接口走此域名
+H5_BASE_URL = "https://h5-api.lynkco.com"
 
 NATIVE_APP_UA = "CA_iOS_SDK_2.0"
 
@@ -303,6 +305,36 @@ def build_ios_signature(method: str, path: str, token: str = "", query: dict = N
     return headers
 
 
+H5_SIGNATURE_HEADERS = "X-Ca-Key,X-Ca-Timestamp,X-Ca-Nonce,X-Ca-Signature-Method"
+
+
+def build_h5_signature(method: str, path: str, token: str = "", query: dict = None) -> dict:
+    """复刻 H5 网关（h5-api.lynkco.com）的签名头，从最新 HAR 抓包确认：
+    仅 X-Ca-Key / X-Ca-Timestamp / X-Ca-Nonce / X-Ca-Signature-Method 参与签名
+    （无 X-Ca-Version、token 不参与签名），accept=*/*、content-type=application/json。
+    """
+    normalized_token = token or ""
+
+    def signature_items(nonce, timestamp):
+        return [
+            ("X-Ca-Key", _get_secret("NATIVE_APP_KEY")),
+            ("X-Ca-Timestamp", timestamp),
+            ("X-Ca-Nonce", nonce),
+            ("X-Ca-Signature-Method", "HmacSHA256"),
+        ]
+
+    headers = build_native_signature(
+        method, path, query=query,
+        accept="*/*", content_type="application/json",
+        signature_headers_order=H5_SIGNATURE_HEADERS,
+        signature_header_items=signature_items,
+    )
+    headers.pop("_nonce", None)
+    headers.pop("_timestamp", None)
+    headers["token"] = normalized_token
+    return headers
+
+
 def load_env_data() -> dict:
     """读取 env.json，返回标准配置节；缺失节使用空 dict。"""
     if not os.path.exists(ENV_FILE):
@@ -357,3 +389,4 @@ def mask_sensitive(data):
     if isinstance(data, list):
         return [mask_sensitive(item) for item in data]
     return data
+
