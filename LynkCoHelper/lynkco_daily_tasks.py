@@ -15,7 +15,13 @@ import os
 import sys
 import time
 
-from lynkco_common import env_value, mask_sensitive
+from lynkco_common import (
+    H5_BASE_URL,
+    build_h5_signature,
+    env_value,
+    mask_sensitive,
+    request_with_retry,
+)
 from lynkco_login import load_token
 from lynkco_notify import (
     build_markdown_report,
@@ -25,17 +31,46 @@ from lynkco_notify import (
 from lynkco_sign import LynkCoSignClient
 from lynkco_share import LynkCoShareClient
 
-# 签到/分享完成后，等待多久再查询"之后积分"，单位秒。经真机验证 3~5 秒足够
-# 让服务端把能量体变化同步到 myEnergy 接口，可通过环境变量覆盖。
+# 签到/分享完成后，等待多久再查询"之后"的能量/积分，单位秒。经真机验证 3~5 秒足够
+# 让服务端把变化同步到查询接口，可通过环境变量覆盖。
 ENERGY_REFRESH_DELAY_SECONDS = float(env_value("LYNKCO_ENERGY_DELAY", "5"))
 
+# 积分接口（app 网关 myEnergy → data.point）
 EP_MY_ENERGY = "/app/energy/myEnergy"
+# 能量体余额接口（H5 网关 energyGradeInfo → data.energyNum）
+EP_ENERGY_GRADE = "/app/user/privilegePackage/energyGradeInfo"
+
+
+def get_my_points(client: LynkCoSignClient) -> dict:
+    """查询当前账号积分（GET /app/energy/myEnergy → data.point）。"""
+    resp = client._request("GET", EP_MY_ENERGY)
+    return resp.json()
 
 
 def get_my_energy(client: LynkCoSignClient) -> dict:
-    """查询当前账号的能量体积分（GET /app/energy/myEnergy，与签到共用同一网关/签名体系）。"""
-    resp = client._request("GET", EP_MY_ENERGY)
-    return resp.json()
+    """查询当前账号能量体余额（GET h5-api.lynkco.com /app/user/privilegePackage/energyGradeInfo → data.energyNum）。
+
+    走 H5 网关专属签名（build_h5_signature），并带上抓包确认的 Origin/Referer/UA。
+    """
+    resp = request_with_retry(
+        client.session, "GET", H5_BASE_URL + EP_ENERGY_GRADE,
+        build_headers=lambda: {
+            **build_h5_signature("GET", EP_ENERGY_GRADE, token=client.token),
+            "Origin": "https://app.lynkco.com",
+            "Referer": "https://app.lynkco.com/",
+            "User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_8 like Mac OS X) "
+                           "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"),
+            "Accept": "*/*",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        return resp.json()
+    except ValueError:
+        raise RuntimeError(
+            f"[GET {EP_ENERGY_GRADE}] 接口未返回有效 JSON（可能被网关拦截），"
+            f"HTTP {resp.status_code}，响应体前200字符: {resp.text[:200]!r}"
+        )
 
 
 def run_daily_tasks(token: str, do_share: bool = True) -> dict:
@@ -51,7 +86,9 @@ def run_daily_tasks(token: str, do_share: bool = True) -> dict:
 
     sign_client = LynkCoSignClient(token)
 
+    # 签到/分享前：记录能量体余额与积分
     result["energy_before"] = get_my_energy(sign_client)
+    result["points_before"] = get_my_points(sign_client)
 
     day_info = sign_client.get_sign_day_info()
     result["day_info"] = day_info
@@ -75,10 +112,11 @@ def run_daily_tasks(token: str, do_share: bool = True) -> dict:
     else:
         result["share_result"] = None
 
-    # 积分变化有异步延迟，等待片刻再查询，避免看到"没有变化"的假象。
+    # 能量/积分变化有异步延迟，等待片刻再查询，避免看到"没有变化"的假象。
     if not already_signed or (do_share and (result.get("share_result") or {}).get("ok")):
         time.sleep(ENERGY_REFRESH_DELAY_SECONDS)
     result["energy_after"] = get_my_energy(sign_client)
+    result["points_after"] = get_my_points(sign_client)
 
     return result
 
@@ -113,6 +151,9 @@ def run_and_notify() -> dict:
         def _point(resp):
             return str((resp.get("data") or {}).get("point", "?"))
 
+        def _energy(resp):
+            return str((resp.get("data") or {}).get("energyNum", "?"))
+
         daily_record = {
             "date": beijing.strftime("%Y-%m-%d"),
             "time": beijing.strftime("%H:%M"),
@@ -126,9 +167,12 @@ def run_and_notify() -> dict:
             "sign_card": ((result.get("continue_info") or {}).get("data") or {}).get("signCardNumber"),
             "share_ok": bool((result.get("share_result") or {}).get("ok")),
             "share_title": (result.get("share_result") or {}).get("articleTitle", ""),
+            # 能量体余额（H5 接口 energyGradeInfo → energyNum，签到+分享后的变化）
+            "energy_before": _energy(result.get("energy_before") or {}),
+            "energy_after": _energy(result.get("energy_after") or {}),
             # 积分（myEnergy 接口的 point 字段，签到+分享后的变化）
-            "points_before": _point(result.get("energy_before") or {}),
-            "points_after": _point(result.get("energy_after") or {}),
+            "points_before": _point(result.get("points_before") or {}),
+            "points_after": _point(result.get("points_after") or {}),
         }
         with open(".daily_result.json", "w", encoding="utf-8") as f:
             json.dump(daily_record, f, ensure_ascii=False, indent=2)
