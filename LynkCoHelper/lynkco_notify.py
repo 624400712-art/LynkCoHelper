@@ -18,8 +18,13 @@ BARK_READ_TIMEOUT = 15
 
 
 def _extract_point(energy_resp: dict) -> str:
-    """从 myEnergy 响应中安全地取出 point 字段，取不到时返回 '?'。"""
+    """从 myEnergy 响应中安全地取出 point（积分）字段，取不到时返回 '?'。"""
     return str((energy_resp.get("data") or {}).get("point", "?"))
+
+
+def _extract_energy_num(energy_resp: dict) -> str:
+    """从 energyGradeInfo 响应中安全地取出 energyNum（能量体余额）字段，取不到时返回 '?'。"""
+    return str((energy_resp.get("data") or {}).get("energyNum", "?"))
 
 
 def build_markdown_report(result: dict) -> str:
@@ -67,9 +72,20 @@ def build_markdown_report(result: dict) -> str:
             detail = share_result.get("detail") or {}
             lines.append(f"- 状态：**失败**（{detail.get('message', '详情见日志')}）")
 
+    # --- 能量体变化（余额） ---
+    energy_before = _extract_energy_num(result.get("energy_before") or {})
+    energy_after = _extract_energy_num(result.get("energy_after") or {})
+    lines.append("\n### ⚡ 能量体变化")
+    try:
+        delta = int(energy_after) - int(energy_before)
+        delta_str = f"（+{delta}）" if delta > 0 else (f"（{delta}）" if delta < 0 else "（无变化）")
+    except (ValueError, TypeError):
+        delta_str = ""
+    lines.append(f"- {energy_before} → **{energy_after}** {delta_str}".rstrip())
+
     # --- 积分变化 ---
-    point_before = _extract_point(result.get("energy_before") or {})
-    point_after = _extract_point(result.get("energy_after") or {})
+    point_before = _extract_point(result.get("points_before") or {})
+    point_after = _extract_point(result.get("points_after") or {})
     lines.append("\n### 💰 积分变化")
     try:
         delta = int(point_after) - int(point_before)
