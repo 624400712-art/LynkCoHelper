@@ -205,7 +205,8 @@ def build_native_signature(method: str, path: str, query: dict = None,
                             signature_headers_order: str = "x-ca-nonce,x-ca-timestamp,x-ca-key",
                             body: bytes = None,
                             extra_ca_headers: dict = None,
-                            signature_header_items=None) -> dict:
+                            signature_header_items=None,
+                            include_date: bool = True) -> dict:
     """
     复刻领克 App 原生 SDK 访问 app-services.lynkco.com.cn 网关的签名逻辑，
     对照阿里云官方 SDK `SignUtil.buildStringToSign` 实现：
@@ -220,12 +221,14 @@ def build_native_signature(method: str, path: str, query: dict = None,
             并返回该列表的函数，可自定义参与签名的 header 集合/顺序/大小写。
         body: 传入则计算 Content-MD5 = Base64(MD5(body))，部分登录接口会校验，
             默认接口（refresh/getShareCode）无需传。
+        include_date: 是否把 Date 头纳入签名。H5 网关（h5-api.lynkco.com）的抓包
+            请求不带 Date 头，签名串中 Date 位置为空串，故需传 False。
 
     签名 = Base64(HMAC-SHA256(待签名字符串, appSecret))
     """
     nonce = str(uuid.uuid4())
     timestamp = str(int(time.time() * 1000))
-    date_str = _format_gmt_date()
+    date_str = _format_gmt_date() if include_date else ""
 
     content_md5 = ""
     if body:
@@ -268,7 +271,8 @@ def build_native_signature(method: str, path: str, query: dict = None,
     result = dict(result_headers)
     result["x-ca-signature-headers"] = signature_headers_order
     result["x-ca-signature"] = signature
-    result["date"] = date_str
+    if include_date:
+        result["date"] = date_str
     result["accept"] = accept
     result["content-type"] = content_type
     if content_md5:
@@ -311,23 +315,28 @@ H5_SIGNATURE_HEADERS = "X-Ca-Key,X-Ca-Timestamp,X-Ca-Nonce,X-Ca-Signature-Method
 def build_h5_signature(method: str, path: str, token: str = "", query: dict = None) -> dict:
     """复刻 H5 网关（h5-api.lynkco.com）的签名头，从最新 HAR 抓包确认：
     仅 X-Ca-Key / X-Ca-Timestamp / X-Ca-Nonce / X-Ca-Signature-Method 参与签名
-    （无 X-Ca-Version、token 不参与签名），accept=*/*、content-type=application/json。
+    （无 X-Ca-Version、token 不参与签名），accept=*/*、content-type=application/json、
+    无 Date 头。注意：参与签名的 header 必须按字典序排列
+    （X-Ca-Key < X-Ca-Nonce < X-Ca-Signature-Method < X-Ca-Timestamp），
+    与 x-ca-signature-headers 声明字符串的书写顺序无关——实测按声明顺序拼串会被
+    网关 403 拒绝，按字典序拼串返回 200。
     """
     normalized_token = token or ""
 
     def signature_items(nonce, timestamp):
         return [
             ("X-Ca-Key", _get_secret("NATIVE_APP_KEY")),
-            ("X-Ca-Timestamp", timestamp),
             ("X-Ca-Nonce", nonce),
             ("X-Ca-Signature-Method", "HmacSHA256"),
+            ("X-Ca-Timestamp", timestamp),
         ]
 
     headers = build_native_signature(
         method, path, query=query,
         accept="*/*", content_type="application/json",
-        signature_headers_order=H5_SIGNATURE_HEADERS,
+        signature_headers_order="X-Ca-Key,X-Ca-Nonce,X-Ca-Signature-Method,X-Ca-Timestamp",
         signature_header_items=signature_items,
+        include_date=False,
     )
     headers.pop("_nonce", None)
     headers.pop("_timestamp", None)
