@@ -174,7 +174,13 @@ def run_and_notify() -> dict:
             "points_before": _point(result.get("points_before") or {}),
             "points_after": _point(result.get("points_after") or {}),
         }
-        with open(".daily_result.json", "w", encoding="utf-8") as f:
+        # 落盘到脚本所在目录（LynkCoHelper/），与 daily-tasks.yml 的 Persist 步骤
+        # （cd ./LynkCoHelper）及 daily-summary.yml 的 working-directory 保持一致，
+        # 避免文件写到仓库根导致汇总读取不到。
+        _result_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), ".daily_result.json"
+        )
+        with open(_result_path, "w", encoding="utf-8") as f:
             json.dump(daily_record, f, ensure_ascii=False, indent=2)
         print("=== 当日结果已落盘 .daily_result.json（汇总推送由 daily-summary 负责）===")
     except Exception as e:
