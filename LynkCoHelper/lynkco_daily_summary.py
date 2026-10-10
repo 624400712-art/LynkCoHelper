@@ -36,20 +36,28 @@ def build_summary_markdown(daily, activity, target_day):
             lines.append(f"- 连续签到：**{daily['continue_days']} 天**")
         if daily.get("sign_card") is not None:
             lines.append(f"- 签到卡剩余：**{daily['sign_card']} 张**")
-        # 积分变化（myEnergy 的 point，与能量是两个独立数值；兼容旧版 energy_before/energy_after 字段名）
+        # 能量体余额变化（energyGradeInfo → energyNum，与积分是两个独立数值）
+        e_before = daily.get("energy_before")
+        e_after = daily.get("energy_after")
+        if e_before not in (None, "?") and e_after not in (None, "?"):
+            try:
+                eb = int(e_before)
+                ea = int(e_after)
+                ed = ea - eb
+                esign = "+" if ed >= 0 else ""
+                lines.append(f"- 能量变化：**{esign}{ed}**（{eb} → {ea}）")
+            except (TypeError, ValueError):
+                lines.append(f"- 能量：{e_before} → {e_after}")
+        # 积分变化（myEnergy → point）
         p_before = daily.get("points_before")
-        if p_before is None:
-            p_before = daily.get("energy_before")
         p_after = daily.get("points_after")
-        if p_after is None:
-            p_after = daily.get("energy_after")
         if p_before not in (None, "?") and p_after not in (None, "?"):
             try:
-                before = int(p_before)
-                after = int(p_after)
-                delta = after - before
-                sign = "+" if delta >= 0 else ""
-                lines.append(f"- 积分变化：**{sign}{delta}**（{before} → {after}）")
+                pb = int(p_before)
+                pa = int(p_after)
+                pd = pa - pb
+                psign = "+" if pd >= 0 else ""
+                lines.append(f"- 积分变化：**{psign}{pd}**（{pb} → {pa}）")
             except (TypeError, ValueError):
                 lines.append(f"- 积分：{p_before} → {p_after}")
 
