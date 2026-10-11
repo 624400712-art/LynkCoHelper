@@ -1,17 +1,17 @@
 {
-  "date": "2026-10-10",
-  "time": "09:43",
-  "markdown": "### ℹ️ 签到\n- 今日已签到，无需重复签到\n- 连续签到：**250 天**\n- 签到卡剩余：**5 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：领克03日常代步，智驾功能实测分享\n\n### ⚡ 能量体变化\n- 932 → **932** （无变化）\n\n### 💰 积分变化\n- 433 → **433** （无变化）",
-  "already_signed": true,
-  "sign_success": false,
-  "sign_message": "",
-  "sign_reward": null,
-  "continue_days": 250,
+  "date": "2026-10-11",
+  "time": "08:15",
+  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**251 天**\n- 签到卡剩余：**5 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：十一自驾看海，奔赴一场海边的浪漫旅行\n\n### ⚡ 能量体变化\n- 932 → **935** （+3）\n\n### 💰 积分变化\n- 433 → **438** （+5）",
+  "already_signed": false,
+  "sign_success": true,
+  "sign_message": "操作成功",
+  "sign_reward": 1,
+  "continue_days": 251,
   "sign_card": 5,
   "share_ok": true,
-  "share_title": "领克03日常代步，智驾功能实测分享",
+  "share_title": "十一自驾看海，奔赴一场海边的浪漫旅行",
   "energy_before": "932",
-  "energy_after": "932",
+  "energy_after": "935",
   "points_before": "433",
-  "points_after": "433"
+  "points_after": "438"
 }
