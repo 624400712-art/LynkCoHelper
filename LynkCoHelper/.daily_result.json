@@ -1,17 +1,17 @@
 {
-  "date": "2026-10-14",
-  "time": "08:23",
-  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**254 天**\n- 签到卡剩余：**5 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：午休一小时，车是我专属的恢复舱\n\n### ⚡ 能量体变化\n- 942 → **945** （+3）\n\n### 💰 积分变化\n- 448 → **453** （+5）",
+  "date": "2026-10-15",
+  "time": "08:22",
+  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**255 天**\n- 签到卡剩余：**5 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：全球旅行官｜神龙架\n\n### ⚡ 能量体变化\n- 945 → **948** （+3）\n\n### 💰 积分变化\n- 453 → **458** （+5）",
   "already_signed": false,
   "sign_success": true,
   "sign_message": "操作成功",
   "sign_reward": 1,
-  "continue_days": 254,
+  "continue_days": 255,
   "sign_card": 5,
   "share_ok": true,
-  "share_title": "午休一小时，车是我专属的恢复舱",
-  "energy_before": "942",
-  "energy_after": "945",
-  "points_before": "448",
-  "points_after": "453"
+  "share_title": "全球旅行官｜神龙架",
+  "energy_before": "945",
+  "energy_after": "948",
+  "points_before": "453",
+  "points_after": "458"
 }
