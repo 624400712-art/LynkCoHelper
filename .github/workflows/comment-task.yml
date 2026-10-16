@@ -2,8 +2,8 @@ name: LynkCo Comment Task
 
 on:
   schedule:
-    # Daily at 09:17, 15:17, and 21:17 China time.
-    - cron: "17 1,7,13 * * *"
+    # Daily at 08:17, 14:17, and 20:17 China time.
+    - cron: "17 0,6,12 * * *"
   workflow_dispatch:
     inputs:
       publish:
