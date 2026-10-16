@@ -2,8 +2,8 @@ name: LynkCo Daily Summary
 
 on:
   schedule:
-    # Daily at 21:30 China time (UTC 13:30)
-    - cron: "30 13 * * *"
+    # Daily at 20:50 China time (UTC 12:50)
+    - cron: "50 12 * * *"
   workflow_dispatch:
 
 permissions:
