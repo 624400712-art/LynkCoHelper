@@ -1,17 +1,17 @@
 {
-  "date": "2026-10-20",
-  "time": "08:25",
-  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+2**\n- 连续签到：**260 天**\n- 签到卡剩余：**5 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n\n### ⚡ 能量体变化\n- 960 → **964** （+4）\n\n### 💰 积分变化\n- 478 → **483** （+5）",
+  "date": "2026-10-21",
+  "time": "08:23",
+  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**261 天**\n- 签到卡剩余：**5 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n\n### ⚡ 能量体变化\n- 964 → **967** （+3）\n\n### 💰 积分变化\n- 483 → **488** （+5）",
   "already_signed": false,
   "sign_success": true,
   "sign_message": "操作成功",
-  "sign_reward": 2,
-  "continue_days": 260,
+  "sign_reward": 1,
+  "continue_days": 261,
   "sign_card": 5,
   "share_ok": true,
   "share_title": "",
-  "energy_before": "960",
-  "energy_after": "964",
-  "points_before": "478",
-  "points_after": "483"
+  "energy_before": "964",
+  "energy_after": "967",
+  "points_before": "483",
+  "points_after": "488"
 }
