@@ -1,9 +1,7 @@
 name: LynkCo Daily Summary
 
 on:
-  schedule:
-    # Daily at 20:50 China time (UTC 12:50)
-    - cron: "50 12 * * *"
+  # 定时由 cron-job.org 外部触发（北京 20:50），避免 GitHub 内置 schedule 与外部触发重复运行。
   workflow_dispatch:
 
 permissions:
