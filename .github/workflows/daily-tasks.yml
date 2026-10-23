@@ -73,5 +73,6 @@ jobs:
           echo "No daily result changes to commit."
         else
           git commit -m "chore: update daily result [skip ci]"
+          git pull --rebase origin ${{ github.ref_name }}
           git push origin HEAD:${{ github.ref_name }}
         fi
