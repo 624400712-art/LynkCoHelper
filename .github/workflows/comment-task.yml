@@ -1,9 +1,7 @@
 name: LynkCo Comment Task
 
 on:
-  schedule:
-    # Daily at 08:17, 14:17, and 20:17 China time.
-    - cron: "17 0,6,12 * * *"
+  # 定时由 cron-job.org 外部触发（北京 08:17/14:17/20:17），避免与内置 schedule 重复触发造成 Actions 用量过大。
   workflow_dispatch:
     inputs:
       publish:
