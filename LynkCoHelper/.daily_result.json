@@ -1,17 +1,17 @@
 {
-  "date": "2026-10-23",
-  "time": "23:26",
-  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**263 天**\n- 签到卡剩余：**5 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n\n### ⚡ 能量体变化\n- 970 → **973** （+3）\n\n### 💰 积分变化\n- 493 → **498** （+5）",
+  "date": "2026-10-24",
+  "time": "08:00",
+  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**264 天**\n- 签到卡剩余：**5 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：汽车保养攻略\n\n### ⚡ 能量体变化\n- 973 → **976** （+3）\n\n### 💰 积分变化\n- 498 → **503** （+5）",
   "already_signed": false,
   "sign_success": true,
   "sign_message": "操作成功",
   "sign_reward": 1,
-  "continue_days": 263,
+  "continue_days": 264,
   "sign_card": 5,
   "share_ok": true,
-  "share_title": "",
-  "energy_before": "970",
-  "energy_after": "973",
-  "points_before": "493",
-  "points_after": "498"
+  "share_title": "汽车保养攻略",
+  "energy_before": "973",
+  "energy_after": "976",
+  "points_before": "498",
+  "points_after": "503"
 }
