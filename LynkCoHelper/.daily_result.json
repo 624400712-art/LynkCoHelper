@@ -1,17 +1,17 @@
 {
-  "date": "2026-10-25",
-  "time": "08:00",
-  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**265 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：领克08用车分享｜兼顾家用与驾控，聊聊我的领克08 EM-P\n\n### ⚡ 能量体变化\n- 976 → **979** （+3）\n\n### 💰 积分变化\n- 503 → **508** （+5）",
+  "date": "2026-10-26",
+  "time": "08:01",
+  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**266 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n\n### ⚡ 能量体变化\n- 979 → **982** （+3）\n\n### 💰 积分变化\n- 508 → **513** （+5）",
   "already_signed": false,
   "sign_success": true,
   "sign_message": "操作成功",
   "sign_reward": 1,
-  "continue_days": 265,
+  "continue_days": 266,
   "sign_card": 6,
   "share_ok": true,
-  "share_title": "领克08用车分享｜兼顾家用与驾控，聊聊我的领克08 EM-P",
-  "energy_before": "976",
-  "energy_after": "979",
-  "points_before": "503",
-  "points_after": "508"
+  "share_title": "",
+  "energy_before": "979",
+  "energy_after": "982",
+  "points_before": "508",
+  "points_after": "513"
 }
