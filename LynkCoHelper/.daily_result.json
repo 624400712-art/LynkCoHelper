@@ -1,17 +1,17 @@
 {
-  "date": "2026-11-08",
+  "date": "2026-11-09",
   "time": "08:01",
-  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**279 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：秋日试驾｜亮黄领克20和暖阳撞个满怀✨\n\n### ⚡ 能量体变化\n- 1020 → **1023** （+3）\n\n### 💰 积分变化\n- 683 → **688** （+5）",
+  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**280 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n\n### ⚡ 能量体变化\n- 1023 → **1026** （+3）\n\n### 💰 积分变化\n- 688 → **693** （+5）",
   "already_signed": false,
   "sign_success": true,
   "sign_message": "操作成功",
   "sign_reward": 1,
-  "continue_days": 279,
+  "continue_days": 280,
   "sign_card": 6,
   "share_ok": true,
-  "share_title": "秋日试驾｜亮黄领克20和暖阳撞个满怀✨",
-  "energy_before": "1020",
-  "energy_after": "1023",
-  "points_before": "683",
-  "points_after": "688"
+  "share_title": "",
+  "energy_before": "1023",
+  "energy_after": "1026",
+  "points_before": "688",
+  "points_after": "693"
 }
