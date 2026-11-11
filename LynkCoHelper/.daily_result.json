@@ -1,17 +1,17 @@
 {
-  "date": "2026-11-10",
+  "date": "2026-11-11",
   "time": "08:01",
-  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+2**\n- 连续签到：**281 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：高速多次碰撞，因为领克，才有劫后余生的庆幸\n\n### ⚡ 能量体变化\n- 1026 → **1030** （+4）\n\n### 💰 积分变化\n- 693 → **698** （+5）",
+  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**282 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n\n### ⚡ 能量体变化\n- 1030 → **1033** （+3）\n\n### 💰 积分变化\n- 698 → **703** （+5）",
   "already_signed": false,
   "sign_success": true,
   "sign_message": "操作成功",
-  "sign_reward": 2,
-  "continue_days": 281,
+  "sign_reward": 1,
+  "continue_days": 282,
   "sign_card": 6,
   "share_ok": true,
-  "share_title": "高速多次碰撞，因为领克，才有劫后余生的庆幸",
-  "energy_before": "1026",
-  "energy_after": "1030",
-  "points_before": "693",
-  "points_after": "698"
+  "share_title": "",
+  "energy_before": "1030",
+  "energy_after": "1033",
+  "points_before": "698",
+  "points_after": "703"
 }
