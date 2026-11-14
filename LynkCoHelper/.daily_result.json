@@ -1,17 +1,17 @@
 {
-  "date": "2026-11-13",
+  "date": "2026-11-14",
   "time": "08:01",
-  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**284 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**失败**（简化两步法失败: Expecting value: line 1 column 1 (char 0)）\n\n### ⚡ 能量体变化\n- 1034 → **1035** （+1）\n\n### 💰 积分变化\n- 703 → **703** （无变化）",
+  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**285 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：2027款全新领克03 上市限时专享价10.38万元起\n\n### ⚡ 能量体变化\n- 1035 → **1038** （+3）\n\n### 💰 积分变化\n- 703 → **708** （+5）",
   "already_signed": false,
   "sign_success": true,
   "sign_message": "操作成功",
   "sign_reward": 1,
-  "continue_days": 284,
+  "continue_days": 285,
   "sign_card": 6,
-  "share_ok": false,
-  "share_title": "",
-  "energy_before": "1034",
-  "energy_after": "1035",
+  "share_ok": true,
+  "share_title": "2027款全新领克03 上市限时专享价10.38万元起",
+  "energy_before": "1035",
+  "energy_after": "1038",
   "points_before": "703",
-  "points_after": "703"
+  "points_after": "708"
 }
