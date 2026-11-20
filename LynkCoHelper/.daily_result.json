@@ -1,17 +1,17 @@
 {
-  "date": "2026-11-19",
+  "date": "2026-11-20",
   "time": "08:01",
-  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**290 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n\n### ⚡ 能量体变化\n- 1045 → **1048** （+3）\n\n### 💰 积分变化\n- 713 → **718** （+5）",
+  "markdown": "### ✅ 签到成功\n- 本次奖励能量体：**+1**\n- 连续签到：**291 天**\n- 签到卡剩余：**6 张**\n\n### 🔗 分享任务\n- 状态：**上报成功**\n- 分享文章：夜色入镜，和领克赴一场城市夜景之约\n\n### ⚡ 能量体变化\n- 1048 → **1051** （+3）\n\n### 💰 积分变化\n- 718 → **723** （+5）",
   "already_signed": false,
   "sign_success": true,
   "sign_message": "操作成功",
   "sign_reward": 1,
-  "continue_days": 290,
+  "continue_days": 291,
   "sign_card": 6,
   "share_ok": true,
-  "share_title": "",
-  "energy_before": "1045",
-  "energy_after": "1048",
-  "points_before": "713",
-  "points_after": "718"
+  "share_title": "夜色入镜，和领克赴一场城市夜景之约",
+  "energy_before": "1048",
+  "energy_after": "1051",
+  "points_before": "718",
+  "points_after": "723"
 }
